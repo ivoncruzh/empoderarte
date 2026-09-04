@@ -1,22 +1,1703 @@
-<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>EmpoderArte · Sistema Integral</title><style>:root{--p:#6b3fa0;--g:#d4a84f;--bg:#f7f4fa;--ink:#30253b;--mut:#756b7d;--ok:#27844b;--bad:#bd3d49;--warn:#a97818}*{box-sizing:border-box}body{margin:0;font-family:Inter,Segoe UI,Arial,sans-serif;background:var(--bg);color:var(--ink)}button,input,select,textarea{font:inherit}button{cursor:pointer}.hidden{display:none!important}.login{min-height:100vh;display:grid;place-items:center;padding:20px;background:linear-gradient(135deg,#f7efff,#fff9ef)}.loginbox{width:min(440px,100%);background:#fff;padding:34px;border-radius:24px;box-shadow:0 20px 60px #3d245322}.brand{font-weight:900;font-size:30px;color:var(--p)}.sub{color:var(--mut)}label{display:block;font-size:13px;font-weight:700;margin:12px 0 6px}input,select,textarea{width:100%;padding:11px 12px;border:1px solid #ddd3e6;border-radius:10px;background:#fff}textarea{min-height:90px}.btn{border:0;border-radius:10px;padding:10px 14px;font-weight:700}.primary{background:var(--p);color:white}.gold{background:var(--g);color:#2f2415}.light{background:#f0ebf5;color:var(--ink)}.danger{background:#fde7e9;color:#9e2835}.app{min-height:100vh;display:grid;grid-template-columns:240px 1fr}.side{background:#2d2138;color:#fff;padding:22px;display:flex;flex-direction:column;gap:10px}.side .brand{color:#fff;margin-bottom:16px}.nav{border:0;background:transparent;color:#e8dff0;text-align:left;padding:11px;border-radius:9px;font-weight:700}.nav:hover,.nav.active{background:#ffffff16;color:#fff}.main{padding:25px;min-width:0}.top{display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:22px}.top h1{margin:0;font-size:26px}.cards{display:grid;grid-template-columns:repeat(5,minmax(140px,1fr));gap:14px}.card{background:#fff;border-radius:16px;padding:18px;box-shadow:0 6px 25px #2d21380d}.metric{font-size:28px;font-weight:900;margin-top:5px}.muted{color:var(--mut);font-size:13px}.section{margin-top:18px}.sectionhead{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:14px}.sectionhead h2,.sectionhead h3{margin:0}.tablewrap{overflow:auto;background:#fff;border-radius:14px}.table{width:100%;border-collapse:collapse;min-width:720px}.table th,.table td{padding:12px;border-bottom:1px solid #eee7f0;text-align:left}.table th{font-size:12px;color:var(--mut)}.status{display:inline-block;padding:5px 8px;border-radius:999px;font-size:12px;font-weight:800}.ok{background:#e8f7ed;color:var(--ok)}.bad{background:#fde9eb;color:var(--bad)}.warn{background:#fff5dc;color:var(--warn)}.grid2,.formgrid{display:grid;grid-template-columns:1fr 1fr;gap:14px}.full{grid-column:1/-1}.actions{display:flex;gap:8px;justify-content:flex-end}.empty{text-align:center;padding:30px;color:var(--mut)}.pill{display:inline-block;padding:4px 8px;border-radius:20px;background:#f0ebf5}.qr{width:180px;height:180px;border:1px dashed #bbb;display:grid;place-items:center;margin:auto}.small{font-size:12px}@media(max-width:900px){.app{grid-template-columns:1fr}.side{position:static}.cards{grid-template-columns:repeat(2,1fr)}.grid2,.formgrid{grid-template-columns:1fr}.main{padding:15px}}
-</style></head><body><section id="login" class="login"><div class="loginbox"><div class="brand">EmpoderArte</div><p class="sub">Sistema Integral de Gestión</p><label>Correo</label><input id="email" value="director@empoderarte.local"><label>Contraseña</label><input id="password" type="password" value="empoderarte"><button class="btn primary" style="width:100%;margin-top:18px" onclick="login()">🚀 Entrar al sistema</button><p class="small sub">Versión V2.1 · Base de datos local SQLite preparada para nube</p></div></section>
-<section id="app" class="app hidden"><aside class="side"><div class="brand">EmpoderArte</div><button class="nav active" data-v="dashboard">🏠 Dashboard</button><button class="nav" data-v="students">👩‍🎓 Alumnos</button><button class="nav" data-v="payments">💳 Pagos</button><button class="nav" data-v="attendance">🕐 Asistencia</button><button class="nav" data-v="promotions">🎁 Promociones</button><button class="nav" data-v="benefits">⭐ Beneficios</button><button class="nav" data-v="credential">📱 Credencial QR</button><button class="nav" data-v="reports">📊 Reportes</button><button id="usersNav" class="nav" data-v="users">👥 Usuarios</button><button id="auditNav" class="nav" data-v="audit">📝 Auditoría</button><div style="margin-top:auto"><div id="userBadge" class="small"></div><button class="nav" onclick="logout()">↪ Cerrar sesión</button></div></aside><main class="main"><div class="top"><h1 id="title">Dashboard</h1><span id="clock" class="muted"></span></div><div id="content"></div></main></section><div id="toast" style="position:fixed;right:20px;bottom:20px;background:#2d2138;color:#fff;padding:12px 16px;border-radius:10px;display:none"></div>
-<script>let token=localStorage.emp_token||'',user=JSON.parse(localStorage.emp_user||'null');const $=id=>document.getElementById(id),esc=x=>String(x??'').replace(/[&<>'"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[m]));async function api(url,opt={}){opt.headers={...(opt.headers||{}),Authorization:'Bearer '+token,'Content-Type':'application/json'};const r=await fetch(url,opt),d=await r.json().catch(()=>({}));if(!r.ok)throw Error(d.error||'Error');return d}function toast(x){$('toast').textContent=x;$('toast').style.display='block';setTimeout(()=>$('toast').style.display='none',2500)}async function login(){try{const r=await fetch('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:$('email').value,password:$('password').value})}),d=await r.json();if(!r.ok)throw Error(d.error);token=d.token;user=d.user;localStorage.emp_token=token;localStorage.emp_user=JSON.stringify(user);boot()}catch(e){alert(e.message)}}function logout(){localStorage.removeItem('emp_token');localStorage.removeItem('emp_user');location.reload()}function boot(){$('login').classList.add('hidden');$('app').classList.remove('hidden');$('userBadge').textContent='👤 '+user.name+' · '+user.role;if(user.role!=='director'){$('usersNav').classList.add('hidden');$('auditNav').classList.add('hidden')}view('dashboard')}if(token&&user)boot();document.querySelectorAll('.nav[data-v]').forEach(b=>b.onclick=()=>view(b.dataset.v));setInterval(()=>{$('clock').textContent=new Date().toLocaleString('es-MX')},1000);
-const status=x=>x==='Vencido'?'<span class="status bad">Vencido</span>':x==='Próximo'?'<span class="status warn">Próximo</span>':x==='Al corriente'?'<span class="status ok">Al corriente</span>':'<span class="pill">'+esc(x||'—')+'</span>';
-async function view(v){document.querySelectorAll('.nav[data-v]').forEach(b=>b.classList.toggle('active',b.dataset.v===v));$('title').textContent={dashboard:'Dashboard',students:'Alumnos',payments:'Pagos',attendance:'Asistencia',promotions:'Promociones',benefits:'Beneficios',credential:'Credencial digital',reports:'Reportes',users:'Usuarios',audit:'Auditoría'}[v];try{if(v==='dashboard')await dashboard();if(v==='students')await students();if(v==='payments')await payments();if(v==='attendance')await attendance();if(v==='promotions')await promotions();if(v==='benefits')await benefits();if(v==='credential')await credential();if(v==='reports')await reports();if(v==='users')await users();if(v==='audit')await audit()}catch(e){alert(e.message)}}
-function payTable(rows){return rows.length?'<div class="tablewrap"><table class="table"><tr><th>Recibo</th><th>Alumno</th><th>Concepto</th><th>Monto</th><th>Método</th><th>Fecha</th></tr>'+rows.map(p=>`<tr><td><b>${esc(p.receipt_no)}</b></td><td>${esc(p.matricula)} · ${esc(p.name)} ${esc(p.last_name)}</td><td>${esc(p.concept)}</td><td>$${(+p.amount).toLocaleString('es-MX',{minimumFractionDigits:2})}</td><td>${esc(p.method)}</td><td>${esc(p.paid_at)}</td></tr>`).join('')+'</table></div>':'<div class="empty">Aún no hay registros.</div>'}
-async function dashboard(){let d=await api('/api/dashboard');$('content').innerHTML=`<div class="cards"><div class="card"><div class="muted">Alumnos</div><div class="metric">${d.total}</div></div><div class="card"><div class="muted">Activos</div><div class="metric">${d.active}</div></div><div class="card"><div class="muted">Vencidos</div><div class="metric" style="color:var(--bad)">${d.overdue}</div></div><div class="card"><div class="muted">Vencen en 7 días</div><div class="metric" style="color:var(--warn)">${d.upcoming}</div></div><div class="card"><div class="muted">Cobrado este mes</div><div class="metric">$${(+d.revenue).toLocaleString('es-MX')}</div></div></div><div class="section card"><div class="sectionhead"><h3>Próximos vencimientos</h3><button class="btn light" onclick="view('students')">Ver alumnos</button></div>${d.exp.length?'<div class="tablewrap"><table class="table"><tr><th>Alumno</th><th>Vencimiento</th><th></th></tr>'+d.exp.map(s=>`<tr><td>${esc(s.matricula)} · ${esc(s.name)} ${esc(s.last_name)}</td><td>${esc(s.due_date)}</td><td><button class="btn gold" onclick="payFor(${s.id})">Cobrar</button></td></tr>`).join('')+'</table></div>':'<div class="empty">No hay vencimientos próximos.</div>'}</div><div class="section card"><h3>Últimos pagos</h3>${payTable(d.recent)}</div>`}
-async function students(){let r=await api('/api/students');$('content').innerHTML=`<div class="sectionhead"><input id="studentSearch" style="max-width:430px" placeholder="Buscar matrícula o nombre" oninput="searchStudents(this.value)"><button class="btn primary" onclick="newStudent()">+ Nuevo alumno</button></div><div class="tablewrap"><table class="table" id="studentTable"><tr><th>Matrícula</th><th>Alumno</th><th>Plan</th><th>Cuota</th><th>Vencimiento</th><th>Estado</th><th></th></tr>${r.map(studentRow).join('')}</table></div>`}function studentRow(s){return `<tr><td><b>${esc(s.matricula)}</b></td><td>${esc(s.name)} ${esc(s.last_name)}<div class="muted">${esc(s.phone)}</div></td><td>${esc(s.plan)}</td><td>$${(+s.monthly_fee).toLocaleString('es-MX')}</td><td>${esc(s.due_date)}</td><td>${status(s.payment_status)}</td><td><button class="btn light" onclick="profile(${s.id})">Ficha</button> <button class="btn gold" onclick="payFor(${s.id})">Cobrar</button></td></tr>`}async function searchStudents(q){let r=await api('/api/students?q='+encodeURIComponent(q));$('studentTable').innerHTML='<tr><th>Matrícula</th><th>Alumno</th><th>Plan</th><th>Cuota</th><th>Vencimiento</th><th>Estado</th><th></th></tr>'+r.map(studentRow).join('')}
-function modal(title,body,action,fn){let d=document.createElement('div');d.id='modal';d.style='position:fixed;inset:0;background:#2d213899;display:grid;place-items:center;padding:18px;z-index:20';d.innerHTML=`<div class="card" style="width:min(760px,100%);max-height:92vh;overflow:auto"><div class="sectionhead"><h2>${title}</h2><button class="btn light" onclick="closeModal()">×</button></div>${body}<div class="actions" style="margin-top:18px"><button class="btn primary" id="modalGo">${action}</button><button class="btn light" onclick="closeModal()">Cancelar</button></div></div>`;document.body.appendChild(d);$('modalGo').onclick=async()=>{try{await fn()}catch(e){alert(e.message)}}}function closeModal(){document.getElementById('modal')?.remove()}
-function newStudent(){modal('Nuevo alumno',`<div class="formgrid"><div><label>Nombre *</label><input id="sn"></div><div><label>Apellidos *</label><input id="sl"></div><div><label>Fecha de nacimiento</label><input id="sb" type="date"></div><div><label>Teléfono</label><input id="sp"></div><div><label>Correo</label><input id="se"></div><div><label>Tutor / contacto</label><input id="st"></div><div><label>Teléfono tutor</label><input id="stp"></div><div><label>Plan</label><select id="spl"><option>Inicial</option><option>Plus</option><option>Premium</option><option>Elite</option></select></div><div><label>Cuota mensual</label><input id="sf" type="number" min="0"></div><div><label>Primer vencimiento</label><input id="sd" type="date"></div><div><label>Nivel de beneficio</label><select id="sbl"><option>Base</option><option>Plus</option><option>Premium</option><option>Elite</option></select></div><div class="full"><label>Notas</label><textarea id="sno"></textarea></div></div>`,'Crear matrícula',async()=>{let d=await api('/api/students',{method:'POST',body:JSON.stringify({name:$('sn').value,last_name:$('sl').value,birth_date:$('sb').value,phone:$('sp').value,email:$('se').value,tutor:$('st').value,tutor_phone:$('stp').value,plan:$('spl').value,monthly_fee:$('sf').value,due_date:$('sd').value,benefit_level:$('sbl').value,notes:$('sno').value})});closeModal();toast('Alumno creado: '+d.matricula);students()})}
-async function profile(id){let s=await api('/api/students/'+id);modal('Ficha · '+esc(s.matricula),`<div class="grid2"><div><p><b>Alumno:</b> ${esc(s.name)} ${esc(s.last_name)}</p><p><b>Plan:</b> ${esc(s.plan)}</p><p><b>Cuota:</b> $${(+s.monthly_fee).toLocaleString('es-MX')}</p><p><b>Vencimiento:</b> ${esc(s.due_date)}</p><p><b>Beneficio:</b> ${esc(s.benefit_level)}</p></div><div><p><b>Teléfono:</b> ${esc(s.phone)}</p><p><b>Correo:</b> ${esc(s.email)}</p><p><b>Tutor:</b> ${esc(s.tutor)}</p><p><b>Contacto:</b> ${esc(s.tutor_phone)}</p></div></div><hr><h3>Historial de pagos</h3>${payTable(s.payments)}<hr><h3>Asistencia reciente</h3>${s.attendance.map(a=>`<p>${esc(a.attended_at)} · ${esc(a.status)} · ${esc(a.discipline)}</p>`).join('')||'<div class="empty">Sin asistencia.</div>'}`,'Cerrar',closeModal)}
-async function payFor(id){if(!id){let ss=await api('/api/students');modal('Seleccionar alumno',`<select id="pick">${ss.map(s=>`<option value="${s.id}">${esc(s.matricula)} · ${esc(s.name)} ${esc(s.last_name)}</option>`).join('')}</select>`,'Continuar',()=>{let x=$('pick');closeModal();payFor(+x.value)});return}modal('Registrar pago',`<label>Monto *</label><input id="pa" type="number" min="1"><label>Método</label><select id="pm"><option>Efectivo</option><option>Transferencia</option><option>Tarjeta</option><option>Otro</option></select><label>Concepto</label><select id="pc"><option>Mensualidad</option><option>Inscripción</option><option>Uniforme</option><option>Otro</option></select><label>Periodo</label><input id="pp" placeholder="Ej. septiembre 2026"><label>Fecha</label><input id="pd" type="date" value="${new Date().toISOString().slice(0,10)}">`,'Registrar pago',async()=>{let d=await api('/api/payments',{method:'POST',body:JSON.stringify({student_id:id,amount:$('pa').value,method:$('pm').value,concept:$('pc').value,period:$('pp').value,paid_at:$('pd').value})});closeModal();toast('Pago registrado · '+d.receipt_no);view('dashboard')})}
-async function payments(){let r=await api('/api/payments');$('content').innerHTML=`<div class="sectionhead"><h3>Historial de pagos</h3><button class="btn primary" onclick="payFor()">+ Registrar pago</button></div>${payTable(r)}`}
-async function attendance(){let r=await api('/api/attendance');$('content').innerHTML=`<div class="sectionhead"><h3>Control de asistencia</h3><button class="btn primary" onclick="newAttendance()">+ Registrar asistencia</button></div><div class="tablewrap"><table class="table"><tr><th>Fecha</th><th>Alumno</th><th>Disciplina</th><th>Grupo</th><th>Estatus</th></tr>${r.map(a=>`<tr><td>${esc(a.attended_at)}</td><td>${esc(a.matricula)} · ${esc(a.name)} ${esc(a.last_name)}</td><td>${esc(a.discipline)}</td><td>${esc(a.group_name)}</td><td>${esc(a.status)}</td></tr>`).join('')}</table></div>`}async function newAttendance(){let ss=await api('/api/students');modal('Registrar asistencia',`<label>Alumno</label><select id="aa">${ss.map(s=>`<option value="${s.id}">${esc(s.matricula)} · ${esc(s.name)} ${esc(s.last_name)}</option>`).join('')}</select><label>Disciplina</label><input id="ad"><label>Grupo</label><input id="ag"><label>Estatus</label><select id="as"><option>Presente</option><option>Ausente</option><option>Retardo</option><option>Justificado</option></select><label>Fecha</label><input id="af" type="date" value="${new Date().toISOString().slice(0,10)}">`,'Guardar',async()=>{await api('/api/attendance',{method:'POST',body:JSON.stringify({student_id:+$('aa').value,discipline:$('ad').value,group_name:$('ag').value,status:$('as').value,attended_at:$('af').value})});closeModal();toast('Asistencia registrada');attendance()})}
-async function promotions(){let r=await api('/api/promotions');$('content').innerHTML=`<div class="sectionhead"><h3>Promociones</h3>${user.role==='director'?'<button class="btn primary" onclick="newPromotion()">+ Nueva promoción</button>':''}</div><div class="cards">${r.map(p=>`<div class="card"><h3>${esc(p.name)}</h3><p>${esc(p.description)}</p><b>${p.discount}${p.kind==='Porcentaje'?'%':' MXN'} de descuento</b><div class="muted">${p.active?'Activa':'Inactiva'} · ${esc(p.expires_at||'Sin vencimiento')}</div></div>`).join('')}</div>`}function newPromotion(){modal('Nueva promoción',`<label>Nombre</label><input id="pn"><label>Descripción</label><textarea id="pdesc"></textarea><label>Descuento</label><input id="pdis" type="number" min="0"><label>Tipo</label><select id="pk"><option>Porcentaje</option><option>Monto</option></select><label>Vigencia</label><input id="pex" type="date">`,'Crear',async()=>{await api('/api/promotions',{method:'POST',body:JSON.stringify({name:$('pn').value,description:$('pdesc').value,discount:$('pdis').value,kind:$('pk').value,expires_at:$('pex').value})});closeModal();toast('Promoción creada');promotions()})}
-async function benefits(){let r=await api('/api/benefits');$('content').innerHTML='<div class="cards">'+r.map(b=>`<div class="card"><div class="pill">${esc(b.level)}</div><h3>${esc(b.name)}</h3><p>${esc(b.description)}</p></div>`).join('')+'</div>'}
-async function credential(){let ss=await api('/api/students');$('content').innerHTML=`<div class="sectionhead"><h3>Credencial digital</h3><select id="credsel" style="max-width:420px" onchange="renderCred()"><option value="">Selecciona un alumno</option>${ss.map(s=>`<option value="${s.id}">${esc(s.matricula)} · ${esc(s.name)} ${esc(s.last_name)}</option>`).join('')}</select></div><div id="cred"></div>`}async function renderCred(){let id=$('credsel').value;if(!id){$('cred').innerHTML='';return}let s=await api('/api/students/'+id);let qr='https://quickchart.io/qr?text='+encodeURIComponent(s.matricula)+'&size=180';$('cred').innerHTML=`<div class="card" style="max-width:420px;text-align:center"><div class="brand">EmpoderArte</div><div class="qr"><img src="${qr}" width="170" height="170" alt="QR"></div><h2>${esc(s.name)} ${esc(s.last_name)}</h2><div class="pill">${esc(s.matricula)}</div><p>Plan ${esc(s.plan)} · Beneficio ${esc(s.benefit_level)}</p><p class="small">El QR contiene únicamente la matrícula.</p><button class="btn primary" onclick="window.print()">🖨️ Imprimir credencial</button></div>`}
-async function reports(){let d=await api('/api/report');$('content').innerHTML=`<div class="cards"><div class="card"><div class="muted">Alumnos registrados</div><div class="metric">${d.alumnos}</div></div><div class="card"><div class="muted">Alumnos activos</div><div class="metric">${d.activos}</div></div><div class="card"><div class="muted">Ingresos del mes</div><div class="metric">$${(+d.ingresos).toLocaleString('es-MX')}</div></div><div class="card"><div class="muted">Vencidos</div><div class="metric" style="color:var(--bad)">${d.vencidos}</div></div></div>`}
-async function users(){let r=await api('/api/users');$('content').innerHTML=`<div class="sectionhead"><h3>Usuarios y permisos</h3><button class="btn primary" onclick="newUser()">+ Nuevo usuario</button></div><div class="tablewrap"><table class="table"><tr><th>Nombre</th><th>Correo</th><th>Rol</th><th>Activo</th><th>Último acceso</th></tr>${r.map(u=>`<tr><td>${esc(u.name)}</td><td>${esc(u.email)}</td><td>${esc(u.role)}</td><td>${u.active?'Sí':'No'}</td><td>${esc(u.last_login||'—')}</td></tr>`).join('')}</table></div>`}function newUser(){modal('Nuevo usuario',`<label>Nombre</label><input id="un"><label>Correo</label><input id="ue" type="email"><label>Contraseña</label><input id="up" type="password"><label>Rol</label><select id="ur"><option value="recepcion">Recepción</option><option value="director">Director</option></select>`,'Crear',async()=>{await api('/api/users',{method:'POST',body:JSON.stringify({name:$('un').value,email:$('ue').value,password:$('up').value,role:$('ur').value})});closeModal();toast('Usuario creado');users()})}
-async function audit(){let r=await api('/api/audit');$('content').innerHTML='<div class="tablewrap"><table class="table"><tr><th>Fecha</th><th>Usuario</th><th>Acción</th><th>Módulo</th><th>Detalle</th></tr>'+r.map(a=>`<tr><td>${esc(a.created_at)}</td><td>${esc(a.user_name)}</td><td>${esc(a.action)}</td><td>${esc(a.module)}</td><td>${esc(a.detail)}</td></tr>`).join('')+'</table></div>'}
-</script></body></html>
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>EmpoderArte | Sistema de Gestión</title>
+<style>
+:root{
+  --bg:#0b0b0d;
+  --panel:#151518;
+  --panel2:#1c1c20;
+  --line:#2b2b31;
+  --gold:#d9ad45;
+  --gold2:#f0cb70;
+  --text:#f7f5ef;
+  --muted:#a9a7a0;
+  --green:#49c77b;
+  --red:#ef6262;
+  --yellow:#e9bd4d;
+  --blue:#5ca9e9;
+}
+*{box-sizing:border-box}
+body{
+  margin:0;
+  font-family:Inter,Segoe UI,Arial,sans-serif;
+  background:var(--bg);
+  color:var(--text);
+}
+button,input,select,textarea{font:inherit}
+button{cursor:pointer}
+.hidden{display:none!important}
+
+.login{
+  min-height:100vh;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:20px;
+  background:
+    radial-gradient(circle at top right,#3b2b12 0,transparent 35%),
+    radial-gradient(circle at bottom left,#21190b 0,transparent 35%),
+    var(--bg);
+}
+.login-card{
+  width:100%;
+  max-width:430px;
+  background:rgba(21,21,24,.96);
+  border:1px solid var(--line);
+  border-radius:22px;
+  padding:38px;
+  box-shadow:0 30px 80px rgba(0,0,0,.5);
+  text-align:center;
+}
+.logo{
+  width:72px;
+  height:72px;
+  border-radius:20px;
+  margin:0 auto 18px;
+  display:grid;
+  place-items:center;
+  background:linear-gradient(135deg,#f1cd72,#9a6b16);
+  color:#17120a;
+  font-size:35px;
+  font-weight:900;
+}
+.login h1{margin:0;color:var(--gold2);font-size:31px}
+.login p{color:var(--muted);margin:7px 0 28px}
+.field{text-align:left;margin-bottom:15px}
+.field label{
+  display:block;
+  font-size:12px;
+  color:var(--muted);
+  margin-bottom:7px;
+  font-weight:700;
+}
+.field input,.field select,.field textarea{
+  width:100%;
+  background:#101014;
+  color:var(--text);
+  border:1px solid var(--line);
+  border-radius:11px;
+  padding:12px 13px;
+  outline:none;
+}
+.field input:focus,.field select:focus,.field textarea:focus{
+  border-color:var(--gold);
+}
+.btn{
+  border:0;
+  border-radius:10px;
+  padding:10px 15px;
+  font-weight:700;
+  color:#16120a;
+  background:var(--gold);
+}
+.btn:hover{background:var(--gold2)}
+.btn.secondary{
+  background:#25252a;
+  color:var(--text);
+  border:1px solid var(--line);
+}
+.btn.danger{background:#632d2d;color:#fff}
+.btn.green{background:#27663f;color:#fff}
+.btn.small{padding:7px 10px;font-size:12px}
+.btn.full{width:100%;padding:13px}
+
+.app{display:flex;min-height:100vh}
+.sidebar{
+  width:245px;
+  flex:none;
+  background:#111114;
+  border-right:1px solid var(--line);
+  padding:20px 14px;
+  position:fixed;
+  inset:0 auto 0 0;
+  overflow:auto;
+}
+.brand{
+  display:flex;
+  align-items:center;
+  gap:11px;
+  padding:5px 10px 24px;
+  border-bottom:1px solid var(--line);
+  margin-bottom:16px;
+}
+.brand-mark{
+  width:42px;height:42px;border-radius:12px;
+  display:grid;place-items:center;
+  background:var(--gold);
+  color:#16120a;font-weight:900;font-size:22px;
+}
+.brand b{display:block;color:var(--gold2);font-size:17px}
+.brand span{display:block;color:var(--muted);font-size:10px;margin-top:2px}
+.nav{
+  width:100%;
+  background:transparent;
+  border:0;
+  color:#aaa8a2;
+  text-align:left;
+  padding:11px 12px;
+  border-radius:10px;
+  margin:2px 0;
+  font-weight:600;
+}
+.nav:hover{background:#202024;color:#fff}
+.nav.active{
+  background:linear-gradient(90deg,#3a2b12,#241d10);
+  color:var(--gold2);
+  border:1px solid #5d471d;
+}
+.side-bottom{
+  border-top:1px solid var(--line);
+  margin-top:18px;
+  padding-top:15px;
+}
+
+.main{
+  margin-left:245px;
+  width:calc(100% - 245px);
+  min-width:0;
+}
+.topbar{
+  height:70px;
+  border-bottom:1px solid var(--line);
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:0 25px;
+  background:#101013;
+  position:sticky;
+  top:0;
+  z-index:20;
+}
+.top-title b{font-size:18px}
+.top-title small{display:block;color:var(--muted);margin-top:3px}
+.user-badge{
+  background:#202024;
+  border:1px solid var(--line);
+  border-radius:20px;
+  padding:8px 13px;
+  color:var(--gold2);
+  font-size:13px;
+}
+.content{padding:25px;max-width:1500px;margin:auto}
+
+.page-head{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:15px;
+  margin-bottom:20px;
+}
+.page-head h2{margin:0;font-size:25px}
+.page-head p{margin:5px 0 0;color:var(--muted);font-size:13px}
+.actions{display:flex;gap:8px;flex-wrap:wrap}
+
+.cards{
+  display:grid;
+  grid-template-columns:repeat(5,minmax(0,1fr));
+  gap:13px;
+  margin-bottom:20px;
+}
+.card{
+  background:var(--panel);
+  border:1px solid var(--line);
+  border-radius:15px;
+  padding:17px;
+}
+.kpi small{
+  color:var(--muted);
+  font-size:11px;
+  text-transform:uppercase;
+  font-weight:800;
+}
+.kpi strong{
+  display:block;
+  font-size:27px;
+  margin-top:9px;
+  color:var(--gold2);
+}
+.kpi span{display:block;color:var(--muted);font-size:11px;margin-top:5px}
+
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:17px}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:17px}
+.card h3{margin:0 0 15px;font-size:16px}
+.muted{color:var(--muted)}
+.notice{
+  background:#201b10;
+  border:1px solid #4b3b1a;
+  border-radius:11px;
+  padding:12px;
+  color:#dfc477;
+  font-size:13px;
+}
+.success{color:var(--green)}
+.error{color:var(--red)}
+
+.table-wrap{
+  overflow:auto;
+  border:1px solid var(--line);
+  border-radius:12px;
+}
+table{width:100%;border-collapse:collapse;min-width:720px}
+th,td{
+  padding:11px 12px;
+  border-bottom:1px solid var(--line);
+  text-align:left;
+  font-size:12px;
+}
+th{
+  color:var(--muted);
+  background:#111114;
+  text-transform:uppercase;
+  font-size:10px;
+}
+tr:last-child td{border-bottom:0}
+.status{
+  display:inline-block;
+  padding:4px 8px;
+  border-radius:20px;
+  background:#29292e;
+  color:#d7d5cf;
+  font-size:10px;
+  font-weight:800;
+}
+.status.green{background:#173b28;color:#69d995}
+.status.red{background:#452022;color:#ff8585}
+.status.yellow{background:#423615;color:#f0cb70}
+
+.search{
+  display:flex;
+  gap:8px;
+  margin-bottom:14px;
+}
+.search input{
+  flex:1;
+  background:#101014;
+  border:1px solid var(--line);
+  border-radius:10px;
+  color:#fff;
+  padding:11px 13px;
+}
+
+.modal-back{
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,.72);
+  display:none;
+  align-items:center;
+  justify-content:center;
+  padding:20px;
+  z-index:100;
+}
+.modal-back.show{display:flex}
+.modal{
+  width:min(850px,100%);
+  max-height:90vh;
+  overflow:auto;
+  background:#17171a;
+  border:1px solid var(--line);
+  border-radius:18px;
+  box-shadow:0 30px 90px #000;
+}
+.modal-head{
+  padding:18px 20px;
+  border-bottom:1px solid var(--line);
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+}
+.modal-head h2{margin:0;font-size:19px}
+.modal-body{padding:20px}
+.modal-foot{
+  padding:15px 20px;
+  border-top:1px solid var(--line);
+  display:flex;
+  justify-content:flex-end;
+  gap:8px;
+}
+.close{
+  background:#29292d;border:0;color:#fff;
+  width:32px;height:32px;border-radius:9px;
+}
+.formgrid{
+  display:grid;
+  grid-template-columns:repeat(2,1fr);
+  gap:13px;
+}
+.formgrid .fullrow{grid-column:1/-1}
+
+.profile{
+  display:grid;
+  grid-template-columns:150px 1fr;
+  gap:20px;
+}
+.avatar{
+  width:125px;height:125px;border-radius:25px;
+  display:grid;place-items:center;
+  background:linear-gradient(135deg,#3c2e14,#1e1b15);
+  border:1px solid #6a5120;
+  color:var(--gold2);
+  font-size:42px;font-weight:900;
+}
+.info-list{
+  display:grid;
+  grid-template-columns:repeat(2,1fr);
+  gap:10px;
+}
+.info-item{
+  background:#111114;
+  border:1px solid var(--line);
+  border-radius:10px;
+  padding:10px;
+}
+.info-item small{display:block;color:var(--muted);font-size:10px}
+.info-item b{display:block;margin-top:4px}
+
+.empty{
+  text-align:center;
+  color:var(--muted);
+  padding:35px 15px;
+}
+
+.mobile-menu{display:none}
+
+@media(max-width:1050px){
+  .cards{grid-template-columns:repeat(3,1fr)}
+  .grid2,.grid3{grid-template-columns:1fr}
+}
+@media(max-width:760px){
+  .sidebar{
+    transform:translateX(-100%);
+    transition:.2s;
+    z-index:80;
+  }
+  .sidebar.open{transform:translateX(0)}
+  .main{margin-left:0;width:100%}
+  .mobile-menu{
+    display:block;
+    background:#25252a;
+    border:1px solid var(--line);
+    color:#fff;
+    border-radius:8px;
+    padding:7px 10px;
+  }
+  .cards{grid-template-columns:repeat(2,1fr)}
+  .content{padding:15px}
+  .topbar{padding:0 15px}
+  .formgrid,.info-list{grid-template-columns:1fr}
+  .profile{grid-template-columns:1fr}
+}
+@media(max-width:480px){
+  .cards{grid-template-columns:1fr}
+  .page-head{align-items:flex-start;flex-direction:column}
+}
+</style>
+</head>
+
+<body>
+
+<!-- LOGIN -->
+<section id="login" class="login">
+  <div class="login-card">
+    <div class="logo">E</div>
+    <h1>EmpoderArte</h1>
+    <p>Sistema Integral de Gestión</p>
+
+    <div class="field">
+      <label>USUARIO / CORREO</label>
+      <input id="loginUser" autocomplete="username" placeholder="director@empoderarte.local">
+    </div>
+
+    <div class="field">
+      <label>CONTRASEÑA</label>
+      <input id="loginPass" type="password" autocomplete="current-password" placeholder="••••••••">
+    </div>
+
+    <button class="btn full" onclick="login()">Iniciar sesión</button>
+    <div id="loginMsg" class="muted" style="margin-top:15px;font-size:12px"></div>
+
+    <div style="margin-top:25px;font-size:11px;color:#666">
+      EmpoderArte · Sistema de Gestión
+    </div>
+  </div>
+</section>
+
+<!-- APP -->
+<section id="app" class="app hidden">
+
+  <aside id="sidebar" class="sidebar">
+    <div class="brand">
+      <div class="brand-mark">E</div>
+      <div>
+        <b>EmpoderArte</b>
+        <span>Escuela de Danza</span>
+      </div>
+    </div>
+
+    <nav>
+      <button data-view="dashboard" class="nav active">⌂ Dashboard</button>
+      <button data-view="alumnos" class="nav">♙ Alumnos</button>
+      <button data-view="recepcion" class="nav">▣ Recepción</button>
+      <button data-view="mensualidades" class="nav">◷ Mensualidades</button>
+      <button data-view="pagos" class="nav">＄ Pagos</button>
+      <button data-view="asistencia" class="nav">✓ Asistencia</button>
+      <button data-view="promociones" class="nav">✦ Promociones</button>
+      <button data-view="beneficios" class="nav">★ Beneficios</button>
+      <button data-view="credenciales" class="nav">▤ Credenciales QR</button>
+      <button data-view="reportes" class="nav">▥ Reportes</button>
+      <button data-view="usuarios" class="nav director-only">⚙ Usuarios</button>
+      <button data-view="auditoria" class="nav director-only">◉ Auditoría</button>
+    </nav>
+
+    <div class="side-bottom">
+      <button class="nav" onclick="logout()">↪ Cerrar sesión</button>
+    </div>
+  </aside>
+
+  <main class="main">
+    <header class="topbar">
+      <div style="display:flex;align-items:center;gap:10px">
+        <button class="mobile-menu" onclick="toggleMenu()">☰</button>
+        <div class="top-title">
+          <b id="pageTitle">Dashboard</b>
+          <small id="today"></small>
+        </div>
+      </div>
+      <div id="userBadge" class="user-badge">Director</div>
+    </header>
+
+    <div id="content" class="content"></div>
+  </main>
+</section>
+
+<!-- MODAL -->
+<div id="modalBack" class="modal-back" onclick="closeModalOutside(event)">
+  <div class="modal">
+    <div class="modal-head">
+      <h2 id="modalTitle"></h2>
+      <button class="close" onclick="closeModal()">×</button>
+    </div>
+    <div id="modalBody" class="modal-body"></div>
+    <div id="modalFoot" class="modal-foot"></div>
+  </div>
+</div>
+
+<script>
+const $=id=>document.getElementById(id);
+const tokenKey='emp_token';
+const userKey='emp_user';
+
+let token=localStorage.getItem(tokenKey)||'';
+let currentUser=null;
+
+try{
+  currentUser=JSON.parse(localStorage.getItem(userKey)||'null');
+}catch(e){currentUser=null}
+
+function esc(v){
+  return String(v??'')
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;')
+    .replace(/'/g,'&#039;');
+}
+
+function money(v){
+  return '$'+Number(v||0).toLocaleString('es-MX',{
+    minimumFractionDigits:2,
+    maximumFractionDigits:2
+  });
+}
+
+function dateMx(v){
+  if(!v)return '—';
+  const d=new Date(v);
+  if(isNaN(d))return esc(v);
+  return d.toLocaleDateString('es-MX');
+}
+
+function todayISO(){
+  return new Date().toISOString().slice(0,10);
+}
+
+function setToday(){
+  $('today').textContent=new Date().toLocaleDateString('es-MX',{
+    weekday:'long',
+    year:'numeric',
+    month:'long',
+    day:'numeric'
+  });
+}
+
+async function api(url,options={}){
+  const opts={...options,headers:{...(options.headers||{})}};
+  if(!opts.headers['Content-Type'] && opts.body)opts.headers['Content-Type']='application/json';
+  if(token)opts.headers.Authorization='Bearer '+token;
+
+  const r=await fetch(url,opts);
+  let data=null;
+
+  try{data=await r.json()}catch(e){
+    data={message:await r.text()};
+  }
+
+  if(r.status===401){
+    logout();
+    throw new Error('La sesión ha vencido. Inicia sesión nuevamente.');
+  }
+
+  if(!r.ok){
+    throw new Error(data?.message||data?.error||'No se pudo completar la operación.');
+  }
+
+  return data;
+}
+
+function openModal(title,body,foot=''){
+  $('modalTitle').textContent=title;
+  $('modalBody').innerHTML=body;
+  $('modalFoot').innerHTML=foot;
+  $('modalBack').classList.add('show');
+}
+
+function closeModal(){
+  $('modalBack').classList.remove('show');
+}
+function closeModalOutside(e){
+  if(e.target.id==='modalBack')closeModal();
+}
+
+function toggleMenu(){
+  $('sidebar').classList.toggle('open');
+}
+
+function logout(){
+  token='';
+  currentUser=null;
+  localStorage.removeItem(tokenKey);
+  localStorage.removeItem(userKey);
+  $('app').classList.add('hidden');
+  $('login').classList.remove('hidden');
+}
+
+async function login(){
+  const email=$('loginUser').value.trim();
+  const password=$('loginPass').value;
+
+  if(!email||!password){
+    $('loginMsg').textContent='Escribe usuario y contraseña.';
+    return;
+  }
+
+  $('loginMsg').textContent='Conectando...';
+
+  try{
+    const data=await api('/api/login',{
+      method:'POST',
+      body:JSON.stringify({email,password,usuario:email})
+    });
+
+    token=data.token||data.accessToken||data.jwt||'';
+    currentUser=data.user||data.usuario||data;
+
+    localStorage.setItem(tokenKey,token);
+    localStorage.setItem(userKey,JSON.stringify(currentUser));
+
+    $('login').classList.add('hidden');
+    $('app').classList.remove('hidden');
+
+    applyRole();
+    setToday();
+    showView(currentUser?.rol==='recepcion'?'recepcion':'dashboard');
+
+  }catch(e){
+    $('loginMsg').innerHTML='<span class="error">'+esc(e.message)+'</span>';
+  }
+}
+
+function applyRole(){
+  const role=String(currentUser?.rol||currentUser?.role||'director').toLowerCase();
+  const isDirector=role==='director'||role==='admin'||role==='administrador';
+
+  document.querySelectorAll('.director-only').forEach(x=>{
+    x.style.display=isDirector?'block':'none';
+  });
+
+  $('userBadge').textContent=isDirector?'👑 Director':'🧑‍💼 Recepción';
+}
+
+function navSetup(){
+  document.querySelectorAll('.nav[data-view]').forEach(b=>{
+    b.addEventListener('click',()=>{
+      showView(b.dataset.view);
+      $('sidebar').classList.remove('open');
+    });
+  });
+}
+
+const titles={
+  dashboard:'Dashboard',
+  alumnos:'Alumnos',
+  recepcion:'Recepción',
+  mensualidades:'Mensualidades',
+  pagos:'Pagos',
+  asistencia:'Asistencia',
+  promociones:'Promociones',
+  beneficios:'Beneficios',
+  credenciales:'Credenciales QR',
+  reportes:'Reportes',
+  usuarios:'Usuarios',
+  auditoria:'Auditoría'
+};
+
+async function showView(view){
+  document.querySelectorAll('.nav[data-view]').forEach(b=>{
+    b.classList.toggle('active',b.dataset.view===view);
+  });
+
+  $('pageTitle').textContent=titles[view]||view;
+
+  const loaders={
+    dashboard:renderDashboard,
+    alumnos:renderStudents,
+    recepcion:renderReception,
+    mensualidades:renderMonthly,
+    pagos:renderPayments,
+    asistencia:renderAttendance,
+    promociones:renderPromotions,
+    beneficios:renderBenefits,
+    credenciales:renderCredentials,
+    reportes:renderReports,
+    usuarios:renderUsers,
+    auditoria:renderAudit
+  };
+
+  try{
+    await (loaders[view]||renderDashboard)();
+  }catch(e){
+    $('content').innerHTML=
+      '<div class="card"><div class="error">No se pudo cargar esta sección.</div>'+
+      '<p class="muted">'+esc(e.message)+'</p></div>';
+  }
+}
+
+async function renderDashboard(){
+  $('content').innerHTML='<div class="card">Cargando información...</div>';
+
+  let d={};
+  try{d=await api('/api/dashboard')}catch(e){
+    d={};
+  }
+
+  const active=d.active??d.activeStudents??d.alumnosActivos??0;
+  const overdue=d.overdue??d.vencidos??0;
+  const upcoming=d.upcoming??d.dueSoon??d.proximos??0;
+  const collected=d.collected??d.revenue??d.ingresos??0;
+  const total=d.total??d.students??d.alumnos??0;
+
+  $('content').innerHTML=`
+    <div class="page-head">
+      <div>
+        <h2>Bienvenida a EmpoderArte</h2>
+        <p>Panel general de administración de la academia.</p>
+      </div>
+      <div class="actions">
+        <button class="btn" onclick="newStudent()">+ Nuevo alumno</button>
+        <button class="btn secondary" onclick="showView('pagos')">Registrar pago</button>
+      </div>
+    </div>
+
+    <div class="cards">
+      <div class="card kpi">
+        <small>Alumnos registrados</small>
+        <strong>${esc(total)}</strong>
+        <span>Base general</span>
+      </div>
+      <div class="card kpi">
+        <small>Alumnos activos</small>
+        <strong>${esc(active)}</strong>
+        <span>Con inscripción vigente</span>
+      </div>
+      <div class="card kpi">
+        <small>Vencidos</small>
+        <strong>${esc(overdue)}</strong>
+        <span>Requieren seguimiento</span>
+      </div>
+      <div class="card kpi">
+        <small>Próximos vencimientos</small>
+        <strong>${esc(upcoming)}</strong>
+        <span>Próximos 7 días</span>
+      </div>
+      <div class="card kpi">
+        <small>Recaudación</small>
+        <strong>${money(collected)}</strong>
+        <span>Pagos registrados</span>
+      </div>
+    </div>
+
+    <div class="grid2">
+      <div class="card">
+        <h3>Acciones rápidas</h3>
+        <div class="grid2">
+          <button class="btn secondary" onclick="newStudent()">♙ Alta de alumno</button>
+          <button class="btn secondary" onclick="showView('pagos')">＄ Registrar pago</button>
+          <button class="btn secondary" onclick="showView('asistencia')">✓ Registrar asistencia</button>
+          <button class="btn secondary" onclick="showView('credenciales')">▤ Credencial QR</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Estado del sistema</h3>
+        <div class="notice">
+          <b>Base de datos conectada</b><br>
+          La aplicación está trabajando con la información almacenada en el servidor.
+        </div>
+        <p class="muted" style="font-size:12px">
+          Usa el menú lateral para administrar alumnos, mensualidades, pagos y demás módulos.
+        </p>
+      </div>
+    </div>
+  `;
+}
+
+async function renderStudents(){
+  $('content').innerHTML='<div class="card">Cargando alumnos...</div>';
+
+  const data=await api('/api/students');
+  const rows=Array.isArray(data)?data:(data.students||data.alumnos||data.rows||[]);
+
+  window.studentsCache=rows;
+
+  $('content').innerHTML=`
+    <div class="page-head">
+      <div>
+        <h2>Alumnos</h2>
+        <p>Registro, matrícula y ficha principal de cada alumno.</p>
+      </div>
+      <button class="btn" onclick="newStudent()">+ Nuevo alumno</button>
+    </div>
+
+    <div class="card">
+      <div class="search">
+        <input id="studentSearch" placeholder="Buscar por nombre, matrícula, teléfono o correo..." oninput="filterStudents()">
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Matrícula</th>
+              <th>Alumno</th>
+              <th>Teléfono</th>
+              <th>Plan</th>
+              <th>Cuota</th>
+              <th>Estado</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="studentsBody">
+            ${studentRows(rows)}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
+}
+
+function studentRows(rows){
+  if(!rows.length){
+    return '<tr><td colspan="7"><div class="empty">Todavía no hay alumnos registrados.</div></td></tr>';
+  }
+
+  return rows.map(s=>{
+    const name=[s.nombre,s.apellidos].filter(Boolean).join(' ')||s.name||s.nombre_completo||'Sin nombre';
+    const matricula=s.matricula||s.student_number||s.numero||'—';
+    const status=s.estado||s.status||'Activo';
+    const plan=s.plan||s.plan_nombre||'—';
+    const cuota=s.cuota_mensual??s.mensualidad??s.fee??0;
+
+    return `
+      <tr>
+        <td><b>${esc(matricula)}</b></td>
+        <td>${esc(name)}</td>
+        <td>${esc(s.telefono||s.phone||'—')}</td>
+        <td>${esc(plan)}</td>
+        <td>${money(cuota)}</td>
+        <td><span class="status ${String(status).toLowerCase().includes('activo')?'green':'yellow'}">${esc(status)}</span></td>
+        <td>
+          <button class="btn small secondary" onclick="studentFile(${Number(s.id||s.student_id)})">Ver ficha</button>
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+function filterStudents(){
+  const q=($('studentSearch')?.value||'').toLowerCase();
+  const rows=(window.studentsCache||[]).filter(s=>
+    JSON.stringify(s).toLowerCase().includes(q)
+  );
+  $('studentsBody').innerHTML=studentRows(rows);
+}
+
+function newStudent(){
+  const body=`
+    <div class="formgrid">
+
+      <div class="field">
+        <label>NOMBRE *</label>
+        <input id="fNombre" required>
+      </div>
+
+      <div class="field">
+        <label>APELLIDOS *</label>
+        <input id="fApellidos" required>
+      </div>
+
+      <div class="field">
+        <label>FECHA DE NACIMIENTO</label>
+        <input id="fNacimiento" type="date">
+      </div>
+
+      <div class="field">
+        <label>TELÉFONO</label>
+        <input id="fTelefono">
+      </div>
+
+      <div class="field">
+        <label>CORREO</label>
+        <input id="fCorreo" type="email">
+      </div>
+
+      <div class="field">
+        <label>TUTOR / CONTACTO</label>
+        <input id="fTutor">
+      </div>
+
+      <div class="field">
+        <label>TELÉFONO DEL TUTOR</label>
+        <input id="fTelefonoTutor">
+      </div>
+
+      <div class="field">
+        <label>PLAN</label>
+        <select id="fPlan">
+          <option>Inicial</option>
+          <option>Intermedio</option>
+          <option>Avanzado</option>
+          <option>Personalizado</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label>CUOTA MENSUAL</label>
+        <input id="fCuota" type="number" min="0" step="0.01" value="0">
+      </div>
+
+      <div class="field">
+        <label>PRIMER VENCIMIENTO</label>
+        <input id="fVencimiento" type="date" value="${todayISO()}">
+      </div>
+
+      <div class="field">
+        <label>NIVEL DE BENEFICIO</label>
+        <select id="fBeneficio">
+          <option>Base</option>
+          <option>Bronce</option>
+          <option>Plata</option>
+          <option>Oro</option>
+          <option>Especial</option>
+        </select>
+      </div>
+
+      <div class="field fullrow">
+        <label>NOTAS</label>
+        <textarea id="fNotas" rows="3"></textarea>
+      </div>
+
+    </div>
+  `;
+
+  openModal(
+    'Nuevo alumno',
+    body,
+    '<button class="btn secondary" onclick="closeModal()">Cancelar</button>'+
+    '<button class="btn" onclick="saveStudent()">Guardar alumno</button>'
+  );
+}
+
+async function saveStudent(){
+  const nombre=$('fNombre').value.trim();
+  const apellidos=$('fApellidos').value.trim();
+
+  if(!nombre||!apellidos){
+    alert('Nombre y apellidos son obligatorios.');
+    return;
+  }
+
+  const payload={
+    nombre,
+    apellidos,
+    fecha_nacimiento:$('fNacimiento').value||null,
+    fechaNacimiento:$('fNacimiento').value||null,
+    telefono:$('fTelefono').value.trim(),
+    correo:$('fCorreo').value.trim(),
+    email:$('fCorreo').value.trim(),
+    tutor:$('fTutor').value.trim(),
+    telefono_tutor:$('fTelefonoTutor').value.trim(),
+    telefonoTutor:$('fTelefonoTutor').value.trim(),
+    plan:$('fPlan').value,
+    cuota_mensual:Number($('fCuota').value||0),
+    mensualidad:Number($('fCuota').value||0),
+    primer_vencimiento:$('fVencimiento').value||null,
+    primerVencimiento:$('fVencimiento').value||null,
+    beneficio:$('fBeneficio').value,
+    nivel_beneficio:$('fBeneficio').value,
+    notas:$('fNotas').value.trim()
+  };
+
+  try{
+    const data=await api('/api/students',{
+      method:'POST',
+      body:JSON.stringify(payload)
+    });
+
+    closeModal();
+
+    alert(
+      'Alumno registrado correctamente.'+
+      (data?.matricula?'\\n\\nMatrícula: '+data.matricula:'')
+    );
+
+    showView('alumnos');
+
+  }catch(e){
+    alert('No se pudo registrar el alumno:\\n'+e.message);
+  }
+}
+
+async function studentFile(id){
+  if(!id)return;
+
+  try{
+    const s=await api('/api/students/'+id);
+
+    const name=[s.nombre,s.apellidos].filter(Boolean).join(' ')||s.name||'Alumno';
+    const matricula=s.matricula||s.student_number||'—';
+
+    openModal(
+      'Ficha del alumno',
+      `
+      <div class="profile">
+        <div class="avatar">${esc(name.charAt(0).toUpperCase())}</div>
+
+        <div>
+          <h2 style="margin:0 0 5px">${esc(name)}</h2>
+          <div class="muted" style="margin-bottom:15px">
+            Matrícula: <b style="color:var(--gold2)">${esc(matricula)}</b>
+          </div>
+
+          <div class="info-list">
+            <div class="info-item">
+              <small>Teléfono</small>
+              <b>${esc(s.telefono||s.phone||'—')}</b>
+            </div>
+            <div class="info-item">
+              <small>Correo</small>
+              <b>${esc(s.correo||s.email||'—')}</b>
+            </div>
+            <div class="info-item">
+              <small>Plan</small>
+              <b>${esc(s.plan||s.plan_nombre||'—')}</b>
+            </div>
+            <div class="info-item">
+              <small>Cuota mensual</small>
+              <b>${money(s.cuota_mensual??s.mensualidad??0)}</b>
+            </div>
+            <div class="info-item">
+              <small>Primer vencimiento</small>
+              <b>${dateMx(s.primer_vencimiento||s.primerVencimiento)}</b>
+            </div>
+            <div class="info-item">
+              <small>Beneficio</small>
+              <b>${esc(s.beneficio||s.nivel_beneficio||'Base')}</b>
+            </div>
+            <div class="info-item">
+              <small>Tutor / contacto</small>
+              <b>${esc(s.tutor||'—')}</b>
+            </div>
+            <div class="info-item">
+              <small>Estado</small>
+              <b>${esc(s.estado||s.status||'Activo')}</b>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-top:18px" class="notice">
+        <b>Historial</b><br>
+        Desde aquí se puede consultar el estado general, pagos y vencimientos del alumno.
+      </div>
+      `,
+      '<button class="btn secondary" onclick="closeModal()">Cerrar</button>'+
+      '<button class="btn" onclick="studentPayment('+Number(id)+')">Registrar pago</button>'
+    );
+
+  }catch(e){
+    alert('No se pudo cargar la ficha:\\n'+e.message);
+  }
+}
+
+function studentPayment(id){
+  closeModal();
+  showView('pagos').then(()=>{
+    setTimeout(()=>newPayment(id),300);
+  });
+}
+
+async function renderReception(){
+  $('content').innerHTML=`
+    <div class="page-head">
+      <div>
+        <h2>Recepción</h2>
+        <p>Centro de operaciones para atención rápida.</p>
+      </div>
+    </div>
+
+    <div class="grid3">
+      <div class="card">
+        <h3>Registrar alumno</h3>
+        <p class="muted">Alta y matrícula automática.</p>
+        <button class="btn" onclick="newStudent()">+ Nuevo alumno</button>
+      </div>
+      <div class="card">
+        <h3>Cobrar mensualidad</h3>
+        <p class="muted">Registra un pago y actualiza el siguiente vencimiento.</p>
+        <button class="btn" onclick="showView('pagos')">Registrar pago</button>
+      </div>
+      <div class="card">
+        <h3>Consultar alumnos</h3>
+        <p class="muted">Busca matrícula, teléfono o nombre.</p>
+        <button class="btn" onclick="showView('alumnos')">Abrir alumnos</button>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:17px">
+      <h3>Flujo recomendado de recepción</h3>
+      <div class="notice">
+        1. Buscar alumno → 2. Consultar estado → 3. Registrar pago o asistencia →
+        4. Entregar/consultar credencial digital.
+      </div>
+    </div>
+  `;
+}
+
+async function renderMonthly(){
+  $('content').innerHTML=`
+    <div class="page-head">
+      <div>
+        <h2>Mensualidades</h2>
+        <p>Control de vencimientos y seguimiento de cobranza.</p>
+      </div>
+    </div>
+
+    <div class="grid3">
+      <div class="card">
+        <h3>Al corriente</h3>
+        <div class="muted">Alumnos sin vencimiento pendiente.</div>
+      </div>
+      <div class="card">
+        <h3>Próximos vencimientos</h3>
+        <div class="muted">Alumnos cuyo pago se acerca.</div>
+      </div>
+      <div class="card">
+        <h3>Vencidos</h3>
+        <div class="muted">Alumnos que requieren seguimiento.</div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:17px">
+      <div class="notice">
+        El cálculo de vencimientos se realiza utilizando la información de pagos y fechas almacenada en el servidor.
+      </div>
+      <br>
+      <button class="btn" onclick="showView('pagos')">Ir a pagos</button>
+    </div>
+  `;
+}
+
+async function renderPayments(){
+  $('content').innerHTML='<div class="card">Cargando pagos...</div>';
+
+  let data;
+  try{
+    data=await api('/api/payments');
+  }catch(e){
+    data=[];
+  }
+
+  const rows=Array.isArray(data)?data:(data.payments||data.pagos||data.rows||[]);
+
+  $('content').innerHTML=`
+    <div class="page-head">
+      <div>
+        <h2>Pagos</h2>
+        <p>Registro y consulta de pagos de mensualidades.</p>
+      </div>
+      <button class="btn" onclick="newPayment()">+ Registrar pago</button>
+    </div>
+
+    <div class="card">
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Fecha</th>
+              <th>Alumno</th>
+              <th>Matrícula</th>
+              <th>Concepto</th>
+              <th>Monto</th>
+              <th>Método</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${
+              rows.length?rows.map(p=>`
+                <tr>
+                  <td>${dateMx(p.fecha||p.date||p.created_at)}</td>
+                  <td>${esc(p.alumno||p.nombre||p.student_name||'—')}</td>
+                  <td>${esc(p.matricula||p.student_number||'—')}</td>
+                  <td>${esc(p.concepto||p.description||'Mensualidad')}</td>
+                  <td><b>${money(p.monto??p.amount??p.importe)}</b></td>
+                  <td>${esc(p.metodo||p.method||'—')}</td>
+                </tr>
+              `).join(''):
+              '<tr><td colspan="6"><div class="empty">No hay pagos registrados todavía.</div></td></tr>'
+            }
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
+}
+
+function newPayment(studentId=null){
+  openModal(
+    'Registrar pago',
+    `
+    <div class="formgrid">
+      <div class="field">
+        <label>ID / MATRÍCULA DEL ALUMNO *</label>
+        <input id="pStudent" value="${studentId||''}" placeholder="ID del alumno o matrícula">
+      </div>
+      <div class="field">
+        <label>MONTO *</label>
+        <input id="pAmount" type="number" min="0" step="0.01">
+      </div>
+      <div class="field">
+        <label>FECHA</label>
+        <input id="pDate" type="date" value="${todayISO()}">
+      </div>
+      <div class="field">
+        <label>MÉTODO</label>
+        <select id="pMethod">
+          <option value="Efectivo">Efectivo</option>
+          <option value="Transferencia">Transferencia</option>
+          <option value="Tarjeta">Tarjeta</option>
+          <option value="Depósito">Depósito</option>
+        </select>
+      </div>
+      <div class="field fullrow">
+        <label>REFERENCIA / NOTA</label>
+        <input id="pReference">
+      </div>
+    </div>
+    `,
+    '<button class="btn secondary" onclick="closeModal()">Cancelar</button>'+
+    '<button class="btn" onclick="savePayment()">Guardar pago</button>'
+  );
+}
+
+async function savePayment(){
+  const student=$('pStudent').value.trim();
+  const amount=Number($('pAmount').value||0);
+
+  if(!student||amount<=0){
+    alert('Alumno y monto son obligatorios.');
+    return;
+  }
+
+  const payload={
+    student_id:isNaN(Number(student))?null:Number(student),
+    studentId:isNaN(Number(student))?null:Number(student),
+    matricula:isNaN(Number(student))?student:null,
+    student_number:isNaN(Number(student))?student:null,
+    amount,
+    monto:amount,
+    importe:amount,
+    fecha:$('pDate').value,
+    date:$('pDate').value,
+    method:$('pMethod').value,
+    metodo:$('pMethod').value,
+    reference:$('pReference').value.trim(),
+    referencia:$('pReference').value.trim()
+  };
+
+  try{
+    await api('/api/payments',{
+      method:'POST',
+      body:JSON.stringify(payload)
+    });
+
+    closeModal();
+    alert('Pago registrado correctamente.');
+    showView('pagos');
+
+  }catch(e){
+    alert('No se pudo registrar el pago:\\n'+e.message);
+  }
+}
+
+async function renderAttendance(){
+  $('content').innerHTML=`
+    <div class="page-head">
+      <div>
+        <h2>Asistencia</h2>
+        <p>Control de asistencia de alumnos.</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="formgrid">
+        <div class="field">
+          <label>ALUMNO / MATRÍCULA</label>
+          <input id="aStudent" placeholder="ID o matrícula">
+        </div>
+        <div class="field">
+          <label>FECHA</label>
+          <input id="aDate" type="date" value="${todayISO()}">
+        </div>
+        <div class="field">
+          <label>ESTADO</label>
+          <select id="aStatus">
+            <option>Presente</option>
+            <option>Ausente</option>
+            <option>Retardo</option>
+            <option>Justificada</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>CLASE / DISCIPLINA</label>
+          <input id="aClass">
+        </div>
+      </div>
+      <button class="btn" onclick="saveAttendance()">Registrar asistencia</button>
+    </div>
+  `;
+}
+
+async function saveAttendance(){
+  const student=$('aStudent').value.trim();
+  if(!student){
+    alert('Escribe el alumno o matrícula.');
+    return;
+  }
+
+  try{
+    await api('/api/attendance',{
+      method:'POST',
+      body:JSON.stringify({
+        student_id:isNaN(Number(student))?null:Number(student),
+        studentId:isNaN(Number(student))?null:Number(student),
+        matricula:isNaN(Number(student))?student:null,
+        fecha:$('aDate').value,
+        date:$('aDate').value,
+        estado:$('aStatus').value,
+        status:$('aStatus').value,
+        clase:$('aClass').value
+      })
+    });
+
+    alert('Asistencia registrada.');
+  }catch(e){
+    alert('No se pudo registrar la asistencia:\\n'+e.message);
+  }
+}
+
+async function renderPromotions(){
+  let data=[];
+  try{data=await api('/api/promotions')}catch(e){}
+
+  const rows=Array.isArray(data)?data:(data.promotions||data.promociones||[]);
+
+  $('content').innerHTML=`
+    <div class="page-head">
+      <div>
+        <h2>Promociones</h2>
+        <p>Campañas, descuentos y beneficios comerciales.</p>
+      </div>
+      <button class="btn" onclick="newPromotion()">+ Nueva promoción</button>
+    </div>
+
+    <div class="grid3">
+      ${
+        rows.length?rows.map(x=>`
+          <div class="card">
+            <h3>${esc(x.nombre||x.name||'Promoción')}</h3>
+            <p class="muted">${esc(x.descripcion||x.description||'')}</p>
+            <div class="notice">
+              ${esc(x.descuento||x.discount||'Beneficio especial')}
+            </div>
+          </div>
+        `).join(''):
+        '<div class="card"><div class="empty">No hay promociones registradas.</div></div>'
+      }
+    </div>
+  `;
+}
+
+function newPromotion(){
+  openModal(
+    'Nueva promoción',
+    `
+    <div class="formgrid">
+      <div class="field">
+        <label>NOMBRE *</label>
+        <input id="prNombre">
+      </div>
+      <div class="field">
+        <label>DESCUENTO / BENEFICIO</label>
+        <input id="prDescuento" placeholder="10% / $200 / Clase gratis">
+      </div>
+      <div class="field fullrow">
+        <label>DESCRIPCIÓN</label>
+        <textarea id="prDescripcion" rows="3"></textarea>
+      </div>
+    </div>
+    `,
+    '<button class="btn secondary" onclick="closeModal()">Cancelar</button>'+
+    '<button class="btn" onclick="savePromotion()">Guardar</button>'
+  );
+}
+
+async function savePromotion(){
+  if(!$('prNombre').value.trim()){
+    alert('Escribe el nombre de la promoción.');
+    return;
+  }
+
+  try{
+    await api('/api/promotions',{
+      method:'POST',
+      body:JSON.stringify({
+        nombre:$('prNombre').value.trim(),
+        name:$('prNombre').value.trim(),
+        descuento:$('prDescuento').value.trim(),
+        discount:$('prDescuento').value.trim(),
+        descripcion:$('prDescripcion').value.trim(),
+        description:$('prDescripcion').value.trim()
+      })
+    });
+
+    closeModal();
+    showView('promociones');
+  }catch(e){
+    alert('No se pudo guardar la promoción:\\n'+e.message);
+  }
+}
+
+async function renderBenefits(){
+  let data=[];
+  try{data=await api('/api/benefits')}catch(e){}
+
+  const rows=Array.isArray(data)?data:(data.benefits||data.beneficios||[]);
+
+  $('content').innerHTML=`
+    <div class="page-head">
+      <div>
+        <h2>Beneficios</h2>
+        <p>Niveles y beneficios para alumnos.</p>
+      </div>
+      <button class="btn" onclick="newBenefit()">+ Nuevo beneficio</button>
+    </div>
+
+    <div class="grid3">
+      ${
+        rows.length?rows.map(x=>`
+          <div class="card">
+            <h3>${esc(x.nombre||x.name||x.nivel||'Beneficio')}</h3>
+            <p class="muted">${esc(x.descripcion||x.description||'')}</p>
+          </div>
+        `).join(''):
+        `
+        <div class="card"><h3>Base</h3><p class="muted">Nivel estándar.</p></div>
+        <div class="card"><h3>Plata</h3><p class="muted">Beneficios especiales.</p></div>
+        <div class="card"><h3>Oro</h3><p class="muted">Beneficios premium.</p></div>
+        `
+      }
+    </div>
+  `;
+}
+
+function newBenefit(){
+  openModal(
+    'Nuevo beneficio',
+    `
+    <div class="field">
+      <label>NOMBRE / NIVEL</label>
+      <input id="bNombre">
+    </div>
+    <div class="field">
+      <label>DESCRIPCIÓN</label>
+      <textarea id="bDescripcion" rows="4"></textarea>
+    </div>
+    `,
+    '<button class="btn secondary" onclick="closeModal()">Cancelar</button>'+
+    '<button class="btn" onclick="saveBenefit()">Guardar</button>'
+  );
+}
+
+async function saveBenefit(){
+  try{
+    await api('/api/benefits',{
+      method:'POST',
+      body:JSON.stringify({
+        nombre:$('bNombre').value.trim(),
+        name:$('bNombre').value.trim(),
+        descripcion:$('bDescripcion').value.trim(),
+        description:$('bDescripcion').value.trim()
+      })
+    });
+    closeModal();
+    showView('beneficios');
+  }catch(e){
+    alert('No se pudo guardar:\\n'+e.message);
+  }
+}
+
+async function renderCredentials(){
+  let data=[];
+  try{data=await api('/api/students')}catch(e){}
+
+  const rows=Array.isArray(data)?data:(data.students||data.alumnos||[]);
+
+  $('content').innerHTML=`
+    <div class="page-head">
+      <div>
+        <h2>Credenciales digitales QR</h2>
+        <p>Consulta y generación de credenciales para alumnos.</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="notice">
+        Selecciona un alumno para visualizar su credencial digital.
+      </div>
+      <br>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Matrícula</th>
+              <th>Alumno</th>
+              <th>Plan</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+          ${
+            rows.length?rows.map(s=>{
+              const name=[s.nombre,s.apellidos].filter(Boolean).join(' ')||s.name||'Alumno';
+              return `
+                <tr>
+                  <td>${esc(s.matricula||s.student_number||'—')}</td>
+                  <td>${esc(name)}</td>
+                  <td>${esc(s.plan||s.plan_nombre||'—')}</td>
+                  <td>
+                    <button class="btn small" onclick="credential(${Number(s.id||s.student_id)})">
+                      Ver credencial
+                    </button>
+                  </td>
+                </tr>
+              `;
+            }).join(''):
+            '<tr><td colspan="4"><div class="empty">No hay alumnos.</div></td></tr>'
+          }
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
+}
+
+async function credential(id){
+  try{
+    const s=await api('/api/students/'+id);
+    const name=[s.nombre,s.apellidos].filter(Boolean).join(' ')||s.name||'Alumno';
+    const mat=s.matricula||s.student_number||'—';
+
+    openModal(
+      'Credencial digital',
+      `
+      <div style="max-width:380px;margin:auto;background:#0c0c0e;border:1px solid #59451d;border-radius:22px;padding:25px;text-align:center">
+        <div class="logo" style="width:65px;height:65px">E</div>
+        <div style="color:var(--gold2);font-size:22px;font-weight:900">EmpoderArte</div>
+        <div class="muted" style="font-size:11px">Escuela de Danza</div>
+
+        <div class="avatar" style="margin:25px auto 15px;width:95px;height:95px">
+          ${esc(name.charAt(0).toUpperCase())}
+        </div>
+
+        <h2 style="margin:0">${esc(name)}</h2>
+        <p class="muted">Matrícula</p>
+        <div style="font-size:21px;color:var(--gold2);font-weight:900">${esc(mat)}</div>
+
+        <div style="margin:25px auto;width:150px;height:150px;background:#fff;color:#111;display:grid;place-items:center;font-size:70px;border-radius:12px">
+          ▦
+        </div>
+
+        <small class="muted">
+          Credencial digital EmpoderArte
+        </small>
+      </div>
+      `,
+      '<button class="btn secondary" onclick="closeModal()">Cerrar</button>'+
+      '<button class="btn" onclick="window.print()">Imprimir</button>'
+    );
+  }catch(e){
+    alert('No se pudo generar la credencial:\\n'+e.message);
+  }
+}
+
+async function renderReports(){
+  $('content').innerHTML=`
+    <div class="page-head">
+      <div>
+        <h2>Reportes</h2>
+        <p>Información administrativa y financiera.</p>
+      </div>
+    </div>
+
+    <div class="grid3">
+      <div class="card">
+        <h3>Reporte de alumnos</h3>
+        <p class="muted">Listado general de alumnos.</p>
+        <button class="btn secondary" onclick="showView('alumnos')">Consultar</button>
+      </div>
+      <div class="card">
+        <h3>Reporte de pagos</h3>
+        <p class="muted">Historial de cobranza.</p>
+        <button class="btn secondary" onclick="showView('pagos')">Consultar</button>
+      </div>
+      <div class="card">
+        <h3>Reporte de mensualidades</h3>
+        <p class="muted">Seguimiento de vencimientos.</p>
+        <button class="btn secondary" onclick="showView('mensualidades')">Consultar</button>
+      </div>
+    </div>
+  `;
+}
+
+async function renderUsers(){
+  let data=[];
+  try{data=await api('/api/users')}catch(e){}
+
+  const rows=Array.isArray(data)?data:(data.users||data.usuarios||[]);
+
+  $('content').innerHTML=`
+    <div class="page-head">
+      <div>
+        <h2>Usuarios</h2>
+        <p>Administración de accesos al sistema.</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Usuario</th>
+              <th>Nombre</th>
+              <th>Rol</th>
+              <th>Estado</th>
+            </tr>
+          </thead>
+          <tbody>
+          ${
+            rows.length?rows.map(u=>`
+              <tr>
+                <td>${esc(u.email||u.usuario||'—')}</td>
+                <td>${esc(u.nombre||u.name||'—')}</td>
+                <td>${esc(u.rol||u.role||'—')}</td>
+                <td><span class="status green">Activo</span></td>
+              </tr>
+            `).join(''):
+            '<tr><td colspan="4"><div class="empty">No hay usuarios disponibles.</div></td></tr>'
+          }
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
+}
+
+async function renderAudit(){
+  let data=[];
+  try{data=await api('/api/audit')}catch(e){}
+
+  const rows=Array.isArray(data)?data:(data.audit||data.auditoria||data.rows||[]);
+
+  $('content').innerHTML=`
+    <div class="page-head">
+      <div>
+        <h2>Auditoría</h2>
+        <p>Registro de actividad administrativa.</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Fecha</th>
+              <th>Usuario</th>
+              <th>Acción</th>
+              <th>Detalle</th>
+            </tr>
+          </thead>
+          <tbody>
+          ${
+            rows.length?rows.map(x=>`
+              <tr>
+                <td>${dateMx(x.fecha||x.created_at||x.date)}</td>
+                <td>${esc(x.usuario||x.user||x.email||'—')}</td>
+                <td>${esc(x.accion||x.action||'—')}</td>
+                <td>${esc(x.detalle||x.detail||'—')}</td>
+              </tr>
+            `).join(''):
+            '<tr><td colspan="4"><div class="empty">No hay registros de auditoría.</div></td></tr>'
+          }
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
+}
+
+navSetup();
+setToday();
+
+if(token && currentUser){
+  $('login').classList.add('hidden');
+  $('app').classList.remove('hidden');
+  applyRole();
+  showView(currentUser.rol==='recepcion'?'recepcion':'dashboard');
+}
+</script>
+</body>
+</html>
