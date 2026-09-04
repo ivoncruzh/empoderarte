@@ -42,10 +42,13 @@ CREATE TABLE IF NOT EXISTS trash(id SERIAL PRIMARY KEY,entity_type TEXT NOT NULL
   if(!b.rowCount){for(const x of ['Base','Plus','Premium','Elite']) await pool.query('INSERT INTO benefits(name,description,level) VALUES($1,$2,$3)',[x,'Beneficios del nivel '+x,x]);}
   const lp=await pool.query('SELECT id FROM locker_plans LIMIT 1');
   if(!lp.rowCount) for(const x of [['Mensual',100,1],['Semestral',550,6],['Anual',900,12]]) await pool.query('INSERT INTO locker_plans(name,price,months) VALUES($1,$2,$3)',x);
+  const stg=await pool.query('SELECT id FROM settings WHERE id=1');
+  if(!stg.rowCount) await pool.query('INSERT INTO settings(id,config) VALUES(1,$1::jsonb)',[{"school_name": "EmpoderArte Escuela de Danza", "subtitle": "Escuela de Danza", "phone": "", "whatsapp": "", "email": "", "address": "", "facebook": "", "instagram": "", "primary_color": "#6b3fa0", "secondary_color": "#d4a84f", "sidebar_color": "#2d2138", "background_color": "#f7f4fa", "text_color": "#30253b", "currency": "MXN", "matricula_prefix": "EMP", "receipt_prefix": "REC", "default_due_day": 10, "whatsapp_days": 3, "tolerance_days": 0, "payment_methods": ["Efectivo", "Transferencia", "Tarjeta", "Otro"], "receipt_message": "Gracias por formar parte de EmpoderArte.", "qr_footer": "EmpoderArte · Escuela de Danza", "logo_url": "/logo-empoderarte.jpg", "logo_data": "", "locker_default_price": 100, "locker_default_months": 1, "whatsapp_message": "Hola {nombre}, te recordamos que tu mensualidad vence el {vencimiento}. Importe: {importe}. Gracias por formar parte de EmpoderArte."}]);
 }
 
-async function matricula(){const y=new Date().getFullYear();const r=await pool.query("SELECT COALESCE(MAX(CAST(SUBSTRING(matricula FROM 10) AS INTEGER)),0) n FROM students WHERE matricula LIKE $1",[`EMP-${y}-%`]);return `EMP-${y}-${String(Number(r.rows[0].n)+1).padStart(5,'0')}`}
-async function receipt(){const y=new Date().getFullYear();const r=await pool.query("SELECT COALESCE(MAX(CAST(SUBSTRING(receipt_no FROM 10) AS INTEGER)),0) n FROM payments WHERE receipt_no LIKE $1",[`REC-${y}-%`]);return `REC-${y}-${String(Number(r.rows[0].n)+1).padStart(6,'0')}`}
+async function getConfig(){const r=await pool.query('SELECT config FROM settings WHERE id=1');return r.rowCount?(r.rows[0].config||{}):{}}
+async function matricula(){const c=await getConfig(),prefix=String(c.matricula_prefix||'EMP').toUpperCase().replace(/[^A-Z0-9]/g,'')||'EMP',y=new Date().getFullYear();const pattern=`${prefix}-${y}-%`;const start=prefix.length+7;const r=await pool.query("SELECT COALESCE(MAX(CAST(SUBSTRING(matricula FROM $2) AS INTEGER)),0) n FROM students WHERE matricula LIKE $1",[pattern,start]);return `${prefix}-${y}-${String(Number(r.rows[0].n)+1).padStart(5,'0')}`}
+async function receipt(){const c=await getConfig(),prefix=String(c.receipt_prefix||'REC').toUpperCase().replace(/[^A-Z0-9]/g,'')||'REC',y=new Date().getFullYear();const pattern=`${prefix}-${y}-%`;const start=prefix.length+7;const r=await pool.query("SELECT COALESCE(MAX(CAST(SUBSTRING(receipt_no FROM $2) AS INTEGER)),0) n FROM payments WHERE receipt_no LIKE $1",[pattern,start]);return `${prefix}-${y}-${String(Number(r.rows[0].n)+1).padStart(6,'0')}`}
 async function audit(u,a,m,id,d=''){await pool.query('INSERT INTO audit(user_id,action,module,record_id,detail) VALUES($1,$2,$3,$4,$5)',[u.id,a,m,id,d])}
 function auth(req,res,next){const t=(req.headers.authorization||'').replace(/^Bearer /,'');try{req.user=jwt.verify(t,JWT_SECRET);next()}catch(e){res.status(401).json({error:'Sesión expirada'})}}
 function director(req,res,next){if(req.user.role!=='director')return res.status(403).json({error:'Solo el director puede realizar esta acción'});next()}
@@ -88,13 +91,212 @@ app.post('/api/lockers/:id/penalty',auth,async(q,s)=>{try{const b=q.body||{},amo
 app.post('/api/lockers/:id/close',auth,director,async(q,s)=>{try{const r=await pool.query("UPDATE lockers SET status='Finalizado',updated_at=CURRENT_TIMESTAMP WHERE id=$1 RETURNING *",[q.params.id]);s.json(r.rows[0])}catch(e){console.error(e);s.status(500).json({error:'No se pudo finalizar el locker'})}});
 app.get('/api/personal',auth,director,async(q,s)=>{try{s.json((await pool.query('SELECT * FROM personal WHERE status=\'Activo\' ORDER BY id DESC')).rows)}catch(e){console.error(e);s.status(500).json({error:'No se pudo cargar el personal'})}});
 app.post('/api/personal',auth,director,async(q,s)=>{try{const b=q.body||{};if(!b.name||!b.last_name)return s.status(400).json({error:'Nombre y apellidos son obligatorios'});const y=new Date().getFullYear();const r0=await pool.query("SELECT COALESCE(MAX(CAST(SUBSTRING(matricula FROM 10) AS INTEGER)),0) n FROM personal WHERE matricula LIKE $1",[`PER-${y}-%`]);const n=Number(r0.rows[0].n)+1,m=`PER-${y}-${String(n).padStart(5,'0')}`;const r=await pool.query('INSERT INTO personal(matricula,name,last_name,position,area,phone,email,rate_hour) VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *',[m,b.name,b.last_name,b.position||'Recepción',b.area||'',b.phone||'',b.email||'',+b.rate_hour||0]);await audit(q.user,'CREATE','PERSONAL',r.rows[0].id,'Alta '+m);s.status(201).json(r.rows[0])}catch(e){console.error(e);s.status(500).json({error:'No se pudo registrar el personal'})}});
-app.get('/api/personal/:id',auth,director,async(q,s)=>{try{const r=await pool.query('SELECT * FROM personal WHERE id=$1',[q.params.id]);if(!r.rowCount)return s.status(404).json({error:'Personal no encontrado'});s.json(r.rows[0])}catch(e){console.error(e);s.status(500).json({error:'No se pudo cargar el personal'})}});
+app.get('/api/personal/:id',auth,director,async(q,s)=>{try{const r=await pool.query('SELECT * FROM personal WHERE id=$1',[q.params.id]);if(!r.rowCount)return s.status(404).json({error:'Personal no encontrado'});const a=await pool.query('SELECT * FROM personal_attendance WHERE personal_id=$1 ORDER BY id DESC LIMIT 50',[q.params.id]);s.json({...r.rows[0],attendance:a.rows})}catch(e){console.error(e);s.status(500).json({error:'No se pudo cargar el personal'})}});
 app.post('/api/personal-attendance',auth,director,async(q,s)=>{try{const b=q.body||{},p=await pool.query('SELECT * FROM personal WHERE id=$1',[b.personal_id]);if(!p.rowCount)return s.status(404).json({error:'Personal no encontrado'});if(!b.entry_time||!b.exit_time)return s.status(400).json({error:'Registra entrada y salida'});const r=await pool.query('INSERT INTO personal_attendance(personal_id,attended_at,entry_time,exit_time,activity) VALUES($1,$2,$3,$4,$5) RETURNING *',[b.personal_id,b.attended_at||today(),b.entry_time,b.exit_time,b.activity||p.rows[0].area||p.rows[0].position]);await audit(q.user,'CREATE','ASISTENCIA_PERSONAL',r.rows[0].id,'Asistencia '+p.rows[0].matricula);s.status(201).json(r.rows[0])}catch(e){console.error(e);s.status(500).json({error:'No se pudo registrar la asistencia del personal'})}});
 app.get('/api/payroll',auth,director,async(q,s)=>{try{const rows=[];const teachers=await pool.query("SELECT t.id,t.name,t.last_name,t.rate_hour,COALESCE(SUM(CASE WHEN a.entry_time IS NOT NULL AND a.exit_time IS NOT NULL THEN EXTRACT(EPOCH FROM (('2000-01-01 '||a.exit_time)::timestamp-('2000-01-01 '||a.entry_time)::timestamp))/3600 ELSE 0 END),0) hours FROM teachers t LEFT JOIN teacher_attendance a ON a.teacher_id=t.id AND a.attended_at>=date_trunc('month',CURRENT_DATE)::date::text GROUP BY t.id");teachers.rows.forEach(x=>rows.push({type:'Maestro',name:x.name,last_name:x.last_name,hours:Number(x.hours||0),total:Number(x.hours||0)*Number(x.rate_hour||0)}));const people=await pool.query("SELECT p.id,p.name,p.last_name,p.rate_hour,COALESCE(SUM(CASE WHEN a.entry_time IS NOT NULL AND a.exit_time IS NOT NULL THEN EXTRACT(EPOCH FROM (('2000-01-01 '||a.exit_time)::timestamp-('2000-01-01 '||a.entry_time)::timestamp))/3600 ELSE 0 END),0) hours FROM personal p LEFT JOIN personal_attendance a ON a.personal_id=p.id AND a.attended_at>=date_trunc('month',CURRENT_DATE)::date::text GROUP BY p.id");people.rows.forEach(x=>rows.push({type:'Personal',name:x.name,last_name:x.last_name,hours:Number(x.hours||0),total:Number(x.hours||0)*Number(x.rate_hour||0)}));s.json(rows)}catch(e){console.error(e);s.status(500).json({error:'No se pudo calcular la nómina'})}});
-app.get('/api/settings',auth,director,async(q,s)=>{try{const r=await pool.query('SELECT config FROM settings WHERE id=1');s.json(r.rowCount?r.rows[0].config:{})}catch(e){console.error(e);s.status(500).json({error:'No se pudo cargar configuración'})}});
-app.put('/api/settings',auth,director,async(q,s)=>{try{const b=q.body||{};await pool.query("INSERT INTO settings(id,config) VALUES(1,$1::jsonb) ON CONFLICT(id) DO UPDATE SET config=$1::jsonb,updated_at=CURRENT_TIMESTAMP",[JSON.stringify(b)]);await audit(q.user,'UPDATE','CONFIGURACION',1,'Configuración actualizada');s.json(b)}catch(e){console.error(e);s.status(500).json({error:'No se pudo guardar configuración'})}});
+app.get('/api/settings',auth,async(q,s)=>{try{const r=await pool.query('SELECT config FROM settings WHERE id=1');s.json(r.rowCount?{...{"school_name": "EmpoderArte Escuela de Danza", "subtitle": "Escuela de Danza", "phone": "", "whatsapp": "", "email": "", "address": "", "facebook": "", "instagram": "", "primary_color": "#6b3fa0", "secondary_color": "#d4a84f", "sidebar_color": "#2d2138", "background_color": "#f7f4fa", "text_color": "#30253b", "currency": "MXN", "matricula_prefix": "EMP", "receipt_prefix": "REC", "default_due_day": 10, "whatsapp_days": 3, "tolerance_days": 0, "payment_methods": ["Efectivo", "Transferencia", "Tarjeta", "Otro"], "receipt_message": "Gracias por formar parte de EmpoderArte.", "qr_footer": "EmpoderArte · Escuela de Danza", "logo_url": "/logo-empoderarte.jpg", "logo_data": "", "locker_default_price": 100, "locker_default_months": 1, "whatsapp_message": "Hola {nombre}, te recordamos que tu mensualidad vence el {vencimiento}. Importe: {importe}. Gracias por formar parte de EmpoderArte."},...(r.rows[0].config||{})}:{"school_name": "EmpoderArte Escuela de Danza", "subtitle": "Escuela de Danza", "phone": "", "whatsapp": "", "email": "", "address": "", "facebook": "", "instagram": "", "primary_color": "#6b3fa0", "secondary_color": "#d4a84f", "sidebar_color": "#2d2138", "background_color": "#f7f4fa", "text_color": "#30253b", "currency": "MXN", "matricula_prefix": "EMP", "receipt_prefix": "REC", "default_due_day": 10, "whatsapp_days": 3, "tolerance_days": 0, "payment_methods": ["Efectivo", "Transferencia", "Tarjeta", "Otro"], "receipt_message": "Gracias por formar parte de EmpoderArte.", "qr_footer": "EmpoderArte · Escuela de Danza", "logo_url": "/logo-empoderarte.jpg", "logo_data": "", "locker_default_price": 100, "locker_default_months": 1, "whatsapp_message": "Hola {nombre}, te recordamos que tu mensualidad vence el {vencimiento}. Importe: {importe}. Gracias por formar parte de EmpoderArte."})}catch(e){console.error(e);s.status(500).json({error:'No se pudo cargar configuración'})}});
+app.put('/api/settings',auth,director,async(q,s)=>{try{const b=q.body||{},base={"school_name": "EmpoderArte Escuela de Danza", "subtitle": "Escuela de Danza", "phone": "", "whatsapp": "", "email": "", "address": "", "facebook": "", "instagram": "", "primary_color": "#6b3fa0", "secondary_color": "#d4a84f", "sidebar_color": "#2d2138", "background_color": "#f7f4fa", "text_color": "#30253b", "currency": "MXN", "matricula_prefix": "EMP", "receipt_prefix": "REC", "default_due_day": 10, "whatsapp_days": 3, "tolerance_days": 0, "payment_methods": ["Efectivo", "Transferencia", "Tarjeta", "Otro"], "receipt_message": "Gracias por formar parte de EmpoderArte.", "qr_footer": "EmpoderArte · Escuela de Danza", "logo_url": "/logo-empoderarte.jpg", "logo_data": "", "locker_default_price": 100, "locker_default_months": 1, "whatsapp_message": "Hola {nombre}, te recordamos que tu mensualidad vence el {vencimiento}. Importe: {importe}. Gracias por formar parte de EmpoderArte."},clean={...base,...b};if(!Array.isArray(clean.payment_methods))clean.payment_methods=base.payment_methods;await pool.query("INSERT INTO settings(id,config) VALUES(1,$1::jsonb) ON CONFLICT(id) DO UPDATE SET config=$1::jsonb,updated_at=CURRENT_TIMESTAMP",[JSON.stringify(clean)]);await audit(q.user,'UPDATE','CONFIGURACION',1,'Configuración actualizada');s.json(clean)}catch(e){console.error(e);s.status(500).json({error:'No se pudo guardar configuración'})}});
 app.get('/api/trash',auth,director,async(q,s)=>{try{s.json((await pool.query('SELECT * FROM trash ORDER BY id DESC LIMIT 500')).rows)}catch(e){console.error(e);s.status(500).json({error:'No se pudo cargar la papelera'})}});
-app.post('/api/trash/:id/restore',auth,director,async(q,s)=>{try{const r=await pool.query('SELECT * FROM trash WHERE id=$1',[q.params.id]);if(!r.rowCount)return s.status(404).json({error:'Registro no encontrado'});const x=r.rows[0];if(x.entity_type==='ALUMNO'&&x.data){const d=x.data;await pool.query('INSERT INTO students(id,matricula,name,last_name,birth_date,phone,email,tutor,tutor_phone,plan,status,enrollment_date,monthly_fee,due_date,benefit_level,notes) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16) ON CONFLICT(id) DO NOTHING',[d.id,d.matricula,d.name,d.last_name,d.birth_date,d.phone,d.email,d.tutor,d.tutor_phone,d.plan,d.status,d.enrollment_date,d.monthly_fee,d.due_date,d.benefit_level,d.notes]);await pool.query('DELETE FROM trash WHERE id=$1',[x.id]);await audit(q.user,'RESTORE','PAPELERA',x.id,'Alumno restaurado');return s.json({ok:true})}s.status(400).json({error:'Tipo de registro no restaurable'})}catch(e){console.error(e);s.status(500).json({error:'No se pudo restaurar el registro'})}});
+app.post('/api/trash/:id/restore',auth,director,async(q,s)=>{
+  const client=await pool.connect();
+  try{
+    await client.query('BEGIN');
+    const rr=await client.query('SELECT * FROM trash WHERE id=$1 FOR UPDATE',[q.params.id]);
+    if(!rr.rowCount){await client.query('ROLLBACK');return s.status(404).json({error:'Registro no encontrado'});}
+    const x=rr.rows[0],d=x.data||{},record=d.record;
+    if(!record)throw Error('La papelera no contiene los datos necesarios para restaurar este registro');
+    const exists=async(sql,params)=>!!(await client.query(sql,params)).rowCount;
+    const insert=async(table,cols,row)=>{
+      const vals=cols.map(k=>row[k]??null),ph=cols.map((_,i)=>'$'+(i+1)).join(',');
+      await client.query(`INSERT INTO ${table}(${cols.join(',')}) VALUES(${ph})`,vals);
+    };
+    const bump=async(table)=>{const allowed=['students','payments','attendance','teachers','teacher_attendance','personal','personal_attendance','lockers','locker_payments','locker_penalties','promotions','benefits','locker_plans'];if(allowed.includes(table))await client.query(`SELECT setval(pg_get_serial_sequence('${table}','id'),COALESCE((SELECT MAX(id) FROM ${table}),1),true)`)};
+    if(x.entity_type==='ALUMNO'){
+      if(await exists('SELECT id FROM students WHERE id=$1',[record.id]))throw Error('Ya existe un alumno con ese ID');
+      await insert('students',['id','matricula','name','last_name','birth_date','phone','email','tutor','tutor_phone','plan','status','enrollment_date','monthly_fee','due_date','benefit_level','notes','created_at','updated_at'],record);
+      for(const p of (d.payments||[])){if(!(await exists('SELECT id FROM payments WHERE id=$1',[p.id])))await insert('payments',['id','receipt_no','student_id','amount','method','concept','paid_at','period','notes','created_at'],p)}
+      for(const a of (d.attendance||[])){if(!(await exists('SELECT id FROM attendance WHERE id=$1',[a.id])))await insert('attendance',['id','student_id','attended_at','discipline','group_name','status','notes'],a)}
+      for(const l of (d.lockers||[])){
+        if(await exists('SELECT id FROM lockers WHERE id=$1',[l.id]))continue;
+        const planExists=await exists('SELECT id FROM locker_plans WHERE id=$1',[l.plan_id]);
+        const lr={...l,plan_id:planExists?l.plan_id:null};
+        await insert('lockers',['id','number','student_id','plan_id','plan_name','price','months','paid_at','due_date','status','notes','created_at','updated_at'],lr);
+      }
+      for(const p of (d.locker_payments||[])){if(!(await exists('SELECT id FROM locker_payments WHERE id=$1',[p.id])))await insert('locker_payments',['id','locker_id','amount','paid_at','method','concept','period','notes','created_at'],p)}
+      for(const p of (d.locker_penalties||[])){if(!(await exists('SELECT id FROM locker_penalties WHERE id=$1',[p.id])))await insert('locker_penalties',['id','locker_id','amount','reason','created_at'],p)}
+      for(const t of ['students','payments','attendance','lockers','locker_payments','locker_penalties'])await bump(t);
+    } else if(x.entity_type==='PAGO'){
+      if(await exists('SELECT id FROM payments WHERE id=$1',[record.id]))throw Error('Ese pago ya existe');
+      if(!(await exists('SELECT id FROM students WHERE id=$1',[record.student_id])))throw Error('El alumno relacionado ya no existe');
+      await insert('payments',['id','receipt_no','student_id','amount','method','concept','paid_at','period','notes','created_at'],record);
+      await client.query('UPDATE students SET due_date=$1,updated_at=CURRENT_TIMESTAMP WHERE id=$2',[d.student_due_date_before,record.student_id]);
+      await bump('payments');
+    } else if(x.entity_type==='ASISTENCIA'){
+      if(!(await exists('SELECT id FROM students WHERE id=$1',[record.student_id])))throw Error('El alumno relacionado ya no existe');
+      if(await exists('SELECT id FROM attendance WHERE id=$1',[record.id]))throw Error('Esa asistencia ya existe');
+      await insert('attendance',['id','student_id','attended_at','discipline','group_name','status','notes'],record);await bump('attendance');
+    } else if(x.entity_type==='MAESTRO'){
+      if(await exists('SELECT id FROM teachers WHERE id=$1',[record.id]))throw Error('Ese maestro ya existe');
+      await insert('teachers',['id','matricula','name','last_name','phone','email','discipline','rate_hour','status','notes','created_at'],record);
+      for(const a of (d.attendance||[])){if(!(await exists('SELECT id FROM teacher_attendance WHERE id=$1',[a.id])))await insert('teacher_attendance',['id','teacher_id','attended_at','entry_time','exit_time','discipline','notes','created_at'],a)}
+      await bump('teachers');await bump('teacher_attendance');
+    } else if(x.entity_type==='ASISTENCIA_MAESTRO'){
+      if(!(await exists('SELECT id FROM teachers WHERE id=$1',[record.teacher_id])))throw Error('El maestro relacionado ya no existe');
+      if(await exists('SELECT id FROM teacher_attendance WHERE id=$1',[record.id]))throw Error('Esa asistencia ya existe');
+      await insert('teacher_attendance',['id','teacher_id','attended_at','entry_time','exit_time','discipline','notes','created_at'],record);await bump('teacher_attendance');
+    } else if(x.entity_type==='PERSONAL'){
+      if(await exists('SELECT id FROM personal WHERE id=$1',[record.id]))throw Error('Ese registro de personal ya existe');
+      await insert('personal',['id','matricula','name','last_name','position','area','phone','email','rate_hour','status','created_at'],record);
+      for(const a of (d.attendance||[])){if(!(await exists('SELECT id FROM personal_attendance WHERE id=$1',[a.id])))await insert('personal_attendance',['id','personal_id','attended_at','entry_time','exit_time','activity','created_at'],a)}
+      await bump('personal');await bump('personal_attendance');
+    } else if(x.entity_type==='ASISTENCIA_PERSONAL'){
+      if(!(await exists('SELECT id FROM personal WHERE id=$1',[record.personal_id])))throw Error('El personal relacionado no existe');
+      if(await exists('SELECT id FROM personal_attendance WHERE id=$1',[record.id]))throw Error('Esa asistencia ya existe');
+      await insert('personal_attendance',['id','personal_id','attended_at','entry_time','exit_time','activity','created_at'],record);await bump('personal_attendance');
+    } else if(x.entity_type==='LOCKER'){
+      if(await exists('SELECT id FROM lockers WHERE id=$1',[record.id]))throw Error('Ese locker ya existe');
+      if(record.student_id && !(await exists('SELECT id FROM students WHERE id=$1',[record.student_id])))throw Error('El alumno del locker no existe');
+      const planExists=await exists('SELECT id FROM locker_plans WHERE id=$1',[record.plan_id]);
+      await insert('lockers',['id','number','student_id','plan_id','plan_name','price','months','paid_at','due_date','status','notes','created_at','updated_at'],{...record,plan_id:planExists?record.plan_id:null});
+      for(const p of (d.payments||[])){if(!(await exists('SELECT id FROM locker_payments WHERE id=$1',[p.id])))await insert('locker_payments',['id','locker_id','amount','paid_at','method','concept','period','notes','created_at'],p)}
+      for(const p of (d.penalties||[])){if(!(await exists('SELECT id FROM locker_penalties WHERE id=$1',[p.id])))await insert('locker_penalties',['id','locker_id','amount','reason','created_at'],p)}
+      await bump('lockers');await bump('locker_payments');await bump('locker_penalties');
+    } else if(x.entity_type==='PAGO_LOCKER'){
+      if(!(await exists('SELECT id FROM lockers WHERE id=$1',[record.locker_id])))throw Error('El locker relacionado no existe');
+      if(await exists('SELECT id FROM locker_payments WHERE id=$1',[record.id]))throw Error('Ese pago ya existe');
+      await insert('locker_payments',['id','locker_id','amount','paid_at','method','concept','period','notes','created_at'],record);
+      await client.query('UPDATE lockers SET due_date=$1,updated_at=CURRENT_TIMESTAMP WHERE id=$2',[d.locker_due_date_before||null,record.locker_id]);
+      await bump('locker_payments');
+    } else if(x.entity_type==='PENALIZACION_LOCKER'){
+      if(!(await exists('SELECT id FROM lockers WHERE id=$1',[record.locker_id])))throw Error('El locker relacionado no existe');
+      if(await exists('SELECT id FROM locker_penalties WHERE id=$1',[record.id]))throw Error('Esa penalización ya existe');
+      await insert('locker_penalties',['id','locker_id','amount','reason','created_at'],record);await bump('locker_penalties');
+    } else if(x.entity_type==='PROMOCION'){
+      if(await exists('SELECT id FROM promotions WHERE id=$1',[record.id]))throw Error('Esa promoción ya existe');
+      await insert('promotions',['id','name','description','discount','kind','active','expires_at'],record);await bump('promotions');
+    } else if(x.entity_type==='BENEFICIO'){
+      if(await exists('SELECT id FROM benefits WHERE id=$1',[record.id]))throw Error('Ese beneficio ya existe');
+      await insert('benefits',['id','name','description','level','active'],record);await bump('benefits');
+    } else if(x.entity_type==='USUARIO'){
+      if(await exists('SELECT id FROM users WHERE id=$1',[record.id])){
+        await client.query('UPDATE users SET name=$1,email=$2,role=$3,active=$4,last_login=$5 WHERE id=$6',[record.name,record.email,record.role,record.active??1,record.last_login||null,record.id]);
+      }else{
+        await insert('users',['id','name','email','password_hash','role','active','created_at','last_login'],{...record,active:record.active??1});
+      }
+    } else if(x.entity_type==='PLAN_LOCKER'){
+      if(await exists('SELECT id FROM locker_plans WHERE id=$1',[record.id]))throw Error('Ese plan ya existe');
+      if(await exists('SELECT id FROM locker_plans WHERE name=$1',[record.name]))throw Error('Ya existe un plan con ese nombre');
+      await insert('locker_plans',['id','name','price','months','active'],record);await bump('locker_plans');
+    } else throw Error('Tipo de registro no restaurable');
+    await client.query('DELETE FROM trash WHERE id=$1',[x.id]);
+    await client.query('INSERT INTO audit(user_id,action,module,record_id,detail) VALUES($1,$2,$3,$4,$5)',[q.user.id,'RESTORE','PAPELERA',x.id,'Registro restaurado: '+x.entity_type]);
+    await client.query('COMMIT');
+    s.json({ok:true});
+  }catch(e){await client.query('ROLLBACK');console.error(e);s.status(400).json({error:e.message||'No se pudo restaurar el registro'})}finally{client.release()}
+});
+
+app.post('/api/delete',auth,director,async(q,s)=>{
+  const b=q.body||{},entity=String(b.entity||'').toUpperCase(),id=Number(b.id);
+  if(!id)return s.status(400).json({error:'Registro inválido'});
+  const client=await pool.connect();
+  try{
+    await client.query('BEGIN');
+    let type=entity, snapshot=null, name='', matricula='', last_name='';
+    const one=async(sql,params=[])=>{const r=await client.query(sql,params);return r.rows[0]};
+    const all=async(sql,params=[])=>{const r=await client.query(sql,params);return r.rows};
+    if(entity==='ALUMNO'){
+      const x=await one('SELECT * FROM students WHERE id=$1',[id]); if(!x)throw Error('Alumno no encontrado');
+      const payments=await all('SELECT * FROM payments WHERE student_id=$1 ORDER BY id',[id]);
+      const attendance=await all('SELECT * FROM attendance WHERE student_id=$1 ORDER BY id',[id]);
+      const lockers=await all('SELECT * FROM lockers WHERE student_id=$1 ORDER BY id',[id]);
+      const lockerIds=lockers.map(x=>x.id);
+      const lockerPayments=lockerIds.length?await all('SELECT * FROM locker_payments WHERE locker_id=ANY($1::int[]) ORDER BY id',[lockerIds]):[];
+      const lockerPenalties=lockerIds.length?await all('SELECT * FROM locker_penalties WHERE locker_id=ANY($1::int[]) ORDER BY id',[lockerIds]):[];
+      snapshot={record:x,payments,attendance,lockers,locker_payments:lockerPayments,locker_penalties:lockerPenalties};
+      name=x.name;last_name=x.last_name;matricula=x.matricula;
+      if(lockerIds.length){await client.query('DELETE FROM locker_payments WHERE locker_id=ANY($1::int[])',[lockerIds]);await client.query('DELETE FROM locker_penalties WHERE locker_id=ANY($1::int[])',[lockerIds]);await client.query('DELETE FROM lockers WHERE student_id=$1',[id]);}
+      await client.query('DELETE FROM payments WHERE student_id=$1',[id]);
+      await client.query('DELETE FROM attendance WHERE student_id=$1',[id]);
+      await client.query('DELETE FROM students WHERE id=$1',[id]);
+    } else if(entity==='PAGO'){
+      const x=await one('SELECT * FROM payments WHERE id=$1',[id]); if(!x)throw Error('Pago no encontrado');
+      const st=await one('SELECT id,due_date FROM students WHERE id=$1',[x.student_id]); if(!st)throw Error('Alumno relacionado no encontrado');
+      snapshot={record:x,student_due_date_before:st.due_date}; name='Pago '+x.receipt_no; matricula='';
+      await client.query('DELETE FROM payments WHERE id=$1',[id]);
+      if(String(x.concept||'').toLowerCase().includes('mensual')){
+        const latest=await one("SELECT paid_at FROM payments WHERE student_id=$1 AND LOWER(concept) LIKE '%mensual%' ORDER BY paid_at DESC,id DESC LIMIT 1",[x.student_id]);
+        const due=latest?addMonths(latest.paid_at,1):null;
+        await client.query('UPDATE students SET due_date=$1,updated_at=CURRENT_TIMESTAMP WHERE id=$2',[due,x.student_id]);
+      }
+    } else if(entity==='ASISTENCIA'){
+      const x=await one('SELECT a.*,s.matricula,s.name,s.last_name FROM attendance a LEFT JOIN students s ON s.id=a.student_id WHERE a.id=$1',[id]); if(!x)throw Error('Asistencia no encontrada');
+      snapshot={record:await one('SELECT * FROM attendance WHERE id=$1',[id])};name=x.name||'Asistencia';matricula=x.matricula||'';
+      await client.query('DELETE FROM attendance WHERE id=$1',[id]);
+    } else if(entity==='MAESTRO'){
+      const x=await one('SELECT * FROM teachers WHERE id=$1',[id]); if(!x)throw Error('Maestro no encontrado');
+      snapshot={record:x,attendance:await all('SELECT * FROM teacher_attendance WHERE teacher_id=$1 ORDER BY id',[id])};name=x.name;last_name=x.last_name;matricula=x.matricula;
+      await client.query('DELETE FROM teacher_attendance WHERE teacher_id=$1',[id]);await client.query('DELETE FROM teachers WHERE id=$1',[id]);
+    } else if(entity==='ASISTENCIA_MAESTRO'){
+      const x=await one('SELECT a.*,t.matricula,t.name,t.last_name FROM teacher_attendance a LEFT JOIN teachers t ON t.id=a.teacher_id WHERE a.id=$1',[id]); if(!x)throw Error('Asistencia de maestro no encontrada');
+      snapshot={record:await one('SELECT * FROM teacher_attendance WHERE id=$1',[id])};name=x.name||'Asistencia de maestro';matricula=x.matricula||'';
+      await client.query('DELETE FROM teacher_attendance WHERE id=$1',[id]);
+    } else if(entity==='PERSONAL'){
+      const x=await one('SELECT * FROM personal WHERE id=$1',[id]); if(!x)throw Error('Personal no encontrado');
+      snapshot={record:x,attendance:await all('SELECT * FROM personal_attendance WHERE personal_id=$1 ORDER BY id',[id])};name=x.name;last_name=x.last_name;matricula=x.matricula;
+      await client.query('DELETE FROM personal_attendance WHERE personal_id=$1',[id]);await client.query('DELETE FROM personal WHERE id=$1',[id]);
+    } else if(entity==='ASISTENCIA_PERSONAL'){
+      const x=await one('SELECT a.*,p.matricula,p.name,p.last_name FROM personal_attendance a LEFT JOIN personal p ON p.id=a.personal_id WHERE a.id=$1',[id]); if(!x)throw Error('Asistencia de personal no encontrada');
+      snapshot={record:await one('SELECT * FROM personal_attendance WHERE id=$1',[id])};name=x.name||'Asistencia de personal';matricula=x.matricula||'';
+      await client.query('DELETE FROM personal_attendance WHERE id=$1',[id]);
+    } else if(entity==='LOCKER'){
+      const x=await one('SELECT * FROM lockers WHERE id=$1',[id]); if(!x)throw Error('Locker no encontrado');
+      snapshot={record:x,payments:await all('SELECT * FROM locker_payments WHERE locker_id=$1 ORDER BY id',[id]),penalties:await all('SELECT * FROM locker_penalties WHERE locker_id=$1 ORDER BY id',[id])};name='Locker '+x.number;
+      await client.query('DELETE FROM locker_payments WHERE locker_id=$1',[id]);await client.query('DELETE FROM locker_penalties WHERE locker_id=$1',[id]);await client.query('DELETE FROM lockers WHERE id=$1',[id]);
+    } else if(entity==='PAGO_LOCKER'){
+      const x=await one('SELECT lp.*,l.number,l.due_date,l.months FROM locker_payments lp LEFT JOIN lockers l ON l.id=lp.locker_id WHERE lp.id=$1',[id]); if(!x)throw Error('Pago de locker no encontrado');
+      const latest=await one('SELECT id FROM locker_payments WHERE locker_id=$1 ORDER BY id DESC LIMIT 1',[x.locker_id]);
+      snapshot={record:await one('SELECT * FROM locker_payments WHERE id=$1',[id]),locker_due_date_before:x.due_date};name='Pago locker '+(x.number||'');matricula='';
+      await client.query('DELETE FROM locker_payments WHERE id=$1',[id]);
+      if(latest&&Number(latest.id)===id){
+        const prev=await one('SELECT paid_at FROM locker_payments WHERE locker_id=$1 ORDER BY id DESC LIMIT 1',[x.locker_id]);
+        const due=prev?addMonths(prev.paid_at,x.months||1):x.due_date;
+        await client.query('UPDATE lockers SET due_date=$1,updated_at=CURRENT_TIMESTAMP WHERE id=$2',[due,x.locker_id]);
+      }
+    } else if(entity==='PENALIZACION_LOCKER'){
+      const x=await one('SELECT lp.*,l.number FROM locker_penalties lp LEFT JOIN lockers l ON l.id=lp.locker_id WHERE lp.id=$1',[id]); if(!x)throw Error('Penalización no encontrada');
+      snapshot={record:await one('SELECT * FROM locker_penalties WHERE id=$1',[id])};name='Penalización locker '+(x.number||'');matricula='';
+      await client.query('DELETE FROM locker_penalties WHERE id=$1',[id]);
+    } else if(entity==='PROMOCION'){
+      const x=await one('SELECT * FROM promotions WHERE id=$1',[id]); if(!x)throw Error('Promoción no encontrada');
+      snapshot={record:x};name=x.name;
+      await client.query('DELETE FROM promotions WHERE id=$1',[id]);
+    } else if(entity==='BENEFICIO'){
+      const x=await one('SELECT * FROM benefits WHERE id=$1',[id]); if(!x)throw Error('Beneficio no encontrado');
+      snapshot={record:x};name=x.name;
+      await client.query('DELETE FROM benefits WHERE id=$1',[id]);
+    } else if(entity==='USUARIO'){
+      const x=await one('SELECT id,name,email,role,active,created_at,last_login FROM users WHERE id=$1',[id]); if(!x)throw Error('Usuario no encontrado');
+      if(id===Number(q.user.id))throw Error('No puedes eliminar el usuario con el que estás conectado');
+      if(x.email==='director@empoderarte.local')throw Error('El Director principal está protegido');
+      snapshot={record:x};name=x.name;
+      await client.query('UPDATE users SET active=0 WHERE id=$1',[id]);
+    } else if(entity==='PLAN_LOCKER'){
+      const x=await one('SELECT * FROM locker_plans WHERE id=$1',[id]); if(!x)throw Error('Plan no encontrado');
+      const used=await one('SELECT id FROM lockers WHERE plan_id=$1 LIMIT 1',[id]); if(used)throw Error('No se puede eliminar un plan que tiene lockers asociados');
+      snapshot={record:x};name=x.name;
+      await client.query('DELETE FROM locker_plans WHERE id=$1',[id]);
+    } else {
+      throw Error('Este registro no puede eliminarse desde el sistema');
+    }
+    const t=await client.query('INSERT INTO trash(entity_type,entity_id,matricula,name,last_name,data,deleted_by) VALUES($1,$2,$3,$4,$5,$6::jsonb,$7) RETURNING id',[entity,id,matricula,name,last_name,JSON.stringify(snapshot),q.user.id]);
+    await client.query('INSERT INTO audit(user_id,action,module,record_id,detail) VALUES($1,$2,$3,$4,$5)',[q.user.id,'DELETE',entity,id,'Registro enviado a Papelera']);
+    await client.query('COMMIT');
+    s.json({ok:true,trash_id:t.rows[0].id});
+  }catch(e){await client.query('ROLLBACK');console.error(e);s.status(400).json({error:e.message||'No se pudo eliminar el registro'})}finally{client.release()}
+});
+
+app.get('/api/lockers/:id/penalties',auth,async(q,s)=>{try{s.json((await pool.query('SELECT * FROM locker_penalties WHERE locker_id=$1 ORDER BY id DESC',[q.params.id])).rows)}catch(e){console.error(e);s.status(500).json({error:'No se pudo cargar las penalizaciones'})}});
+
 app.get('/api/report',auth,async(q,s)=>{try{const [a,b,c,d]=await Promise.all([pool.query('SELECT COUNT(*) n FROM students'),pool.query("SELECT COUNT(*) n FROM students WHERE status='Activo'"),pool.query("SELECT COALESCE(SUM(amount),0) n FROM payments WHERE paid_at >= date_trunc('month',CURRENT_DATE)::date::text"),pool.query("SELECT COUNT(*) n FROM students WHERE status='Activo' AND due_date < CURRENT_DATE::text")]);s.json({alumnos:+a.rows[0].n,activos:+b.rows[0].n,ingresos:+c.rows[0].n,vencidos:+d.rows[0].n})}catch(e){console.error(e);s.status(500).json({error:'No se pudo generar el reporte'})}});
 app.get('*',(q,s)=>s.sendFile(path.join(__dirname,'public','index.html')));
 
