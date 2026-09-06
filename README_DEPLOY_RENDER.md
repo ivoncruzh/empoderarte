@@ -23,3 +23,11 @@ Esta versión está preparada para desplegarse como aplicación Node/Express con
 
 ## Nota de plan
 El archivo usa `plan: free` como configuración inicial. La disponibilidad y características de los planes gratuitos pueden cambiar. Para una academia con datos importantes se recomienda un plan de base de datos con persistencia adecuada.
+
+
+## Mejoras de esta entrega
+- Asistencia ilimitada por disciplinas para alumnos de 12 años o más.
+- Registro de asistencia con huella/biometría WebAuthn para alumnos, maestros y personal.
+- Fechas visibles en formato dd/mm/aaaa.
+- La información de tarifas/salarios de maestros y personal está restringida al Director.
+- El ZIP está organizado con `index.html`, `server.js`, `package.json`, `render.yaml` y demás archivos directamente en la raíz del repositorio.

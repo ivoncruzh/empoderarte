@@ -1,13 +1,13 @@
 EMPODERARTE V2.1 — SISTEMA WEB
 
 Incluye:
-- Base de datos SQLite persistente
+- Base de datos PostgreSQL persistente en Render
 - Usuarios Director / Recepción
 - Alumnos y matrícula automática
 - Expedientes e historial
 - Pagos, recibos y actualización de vencimiento
 - Alertas de vencimiento en dashboard
-- Asistencia
+- Asistencia de alumnos, maestros y personal con soporte de huella/biometría
 - Promociones
 - Beneficios
 - Credencial digital con QR (solo matrícula)
@@ -30,3 +30,11 @@ Antes de publicar en Internet cambia JWT_SECRET por una clave larga y aleatoria 
 
 NOTA QR
 La credencial genera un QR externo con la matrícula. No incluye datos personales. En producción se recomienda generar QR desde el backend y, si se requiere validación pública, crear una ruta segura de verificación.
+
+
+MEJORAS INCLUIDAS
+- Alumnos de 12 años o más: asistencia ilimitada por disciplinas; se puede registrar todas las disciplinas programadas del día.
+- Menores de 12 años: se conserva la selección del género/disciplina correspondiente.
+- Huella/biometría mediante WebAuthn (Windows Hello o lector compatible en Chrome/Edge) para alumnos, maestros y personal.
+- Fechas visibles en formato dd/mm/aaaa.
+- Recepción no muestra tarifas, pagos por hora ni datos de nómina de maestros o personal; esos datos quedan disponibles únicamente para Director.
