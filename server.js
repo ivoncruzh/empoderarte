@@ -47,6 +47,7 @@ CREATE TABLE IF NOT EXISTS payment_allocations(id SERIAL PRIMARY KEY,payment_id 
   `);
   await pool.query(`ALTER TABLE students ADD COLUMN IF NOT EXISTS photo_data TEXT DEFAULT '', ADD COLUMN IF NOT EXISTS plan_id INTEGER, ADD COLUMN IF NOT EXISTS discipline_id INTEGER, ADD COLUMN IF NOT EXISTS group_name TEXT DEFAULT '', ADD COLUMN IF NOT EXISTS plan_start_date TEXT, ADD COLUMN IF NOT EXISTS plan_end_date TEXT, ADD COLUMN IF NOT EXISTS new_income BOOLEAN NOT NULL DEFAULT FALSE, ADD COLUMN IF NOT EXISTS billing_day INTEGER`);
   await pool.query(`ALTER TABLE monthly_charges ADD COLUMN IF NOT EXISTS package_payment_id INTEGER REFERENCES payments(id)`);
+  await pool.query(`ALTER TABLE payments ADD COLUMN IF NOT EXISTS monthly_charge_id INTEGER`);
   await pool.query(`UPDATE students SET billing_day=EXTRACT(DAY FROM due_date::date)::integer WHERE billing_day IS NULL AND due_date IS NOT NULL`);
   await pool.query(`ALTER TABLE promotions ADD COLUMN IF NOT EXISTS months INTEGER DEFAULT 1, ADD COLUMN IF NOT EXISTS fee NUMERIC DEFAULT 0, ADD COLUMN IF NOT EXISTS start_date TEXT, ADD COLUMN IF NOT EXISTS end_date TEXT`);
   await pool.query(`ALTER TABLE attendance ADD COLUMN IF NOT EXISTS device_id INTEGER, ADD COLUMN IF NOT EXISTS access_result TEXT DEFAULT 'Permitido'`);
