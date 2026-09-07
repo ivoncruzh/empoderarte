@@ -139,10 +139,12 @@ async function getStudentPaymentState(students){
     try{
       const d=await api('/api/students/'+s.id);
       const charges=Array.isArray(d.monthly_charges)?d.monthly_charges:[];
-      const pending=charges.find(c=>Number(c.balance||0)>0);
+      const pending=charges.find(c=>Number(c.balance||0)>0&&!c.covered_by_package);
       if(!pending)return {...s,payment_status:'Al corriente'};
-      return {...s,payment_status:String(pending.status||'').toLowerCase()==='vencido'?'Vencido':'Pendiente',due_date:pending.due_date||s.due_date,charge_balance:Number(pending.balance||0)};
-    }catch(e){return s;}
+      const due=String(pending.due_date||s.due_date||'');
+      const payment_status=due&&due<=todayLocal()?'Vencido':'Al corriente';
+      return {...s,payment_status,due_date:pending.due_date||s.due_date,charge_balance:Number(pending.balance||0)};
+    }catch(e){return {...s,payment_status:s.payment_status==='Vencido'?'Vencido':'Al corriente'};}
   }));
 }
 async function students(){
@@ -233,9 +235,10 @@ async function profile(id){
   const first=open[0];
   const paymentDue=first?.due_date||s.due_date||'';
   const paymentStatus=first?(paymentDue<=todayLocal()?'Vencido':'Al corriente'):'Al corriente';
-  const paidMonths=charges.filter(x=>Number(x.paid_amount||0)>0||x.covered_by_package);
+  const paidMonths=charges.filter(x=>Number(x.balance||0)<=0&&(Number(x.paid_amount||0)>0||x.covered_by_package)).sort((a,b)=>String(a.period_start||'').localeCompare(String(b.period_start||'')));
   const ah=s.attendance?.length?'<div class="tablewrap"><table class="table"><tr><th>Fecha</th><th>Estatus</th><th>Disciplina</th><th>Grupo</th></tr>'+s.attendance.map(a=>`<tr><td>${fmtDate(a.attended_at)}</td><td>${esc(a.status)}</td><td>${esc(a.discipline||'')}</td><td>${esc(a.group_name||'')}</td></tr>`).join('')+'</table></div>':'<div class="empty">Sin asistencia.</div>';
-  const cht=paidMonths.length?'<div class="tablewrap"><table class="table"><tr><th>Mes pagado</th><th>Fecha de pago</th><th>Importe</th><th>Estado</th></tr>'+paidMonths.map(x=>{const p=(s.payments||[]).find(pay=>Number(pay.monthly_charge_id||0)===Number(x.id)||String(pay.period||'')===String(x.period_start||''));return `<tr><td>${fmtDate(x.period_start)}</td><td>${fmtDate(p?.paid_at||'')}</td><td>$${(+((x.paid_amount||x.amount))).toLocaleString('es-MX',{minimumFractionDigits:2})}</td><td><span class="status ok">Pagado</span></td></tr>`}).join('')+'</table></div>':'<div class="empty">Aún no hay meses pagados.</div>';
+  const monthName=x=>{const raw=String(x||'');const m=raw.match(/^(\d{4})-(\d{2})-(\d{2})/);if(!m)return fmtDate(x);const names=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];return `${names[Number(m[2])-1]} ${m[1]}`};
+  const cht=paidMonths.length?'<div class="tablewrap"><table class="table"><tr><th>Mes pagado</th><th>Fecha de pago</th><th>Importe</th><th>Estado</th></tr>'+paidMonths.map(x=>{const p=(s.payments||[]).find(pay=>Number(pay.monthly_charge_id||0)===Number(x.id)||Number(x.package_payment_id||0)===Number(pay.id)||String(pay.period||'')===String(x.period_start||''));return `<tr><td>${monthName(x.period_start)}</td><td>${fmtDate(p?.paid_at||'')}</td><td>$${(+((x.paid_amount||x.amount))).toLocaleString('es-MX',{minimumFractionDigits:2})}</td><td><span class="status ok">Pagado</span></td></tr>`}).join('')+'</table></div>':'<div class="empty">Aún no hay meses pagados.</div>';
   const incomeBadge=s.new_income?'<span style="display:inline-block;padding:6px 10px;border-radius:999px;background:#e8f7ed;color:#27844b;font-size:12px;font-weight:900;margin-top:6px">🆕 NUEVO INGRESO</span>':'<span class="pill" style="margin-top:6px;display:inline-block">ALUMNO YA EXISTENTE</span>';
   const body=`<div class="grid2"><div><div style="display:flex;gap:14px;align-items:center">${photoTag(s.photo_data,'Foto de '+s.name)}<div><h3 style="margin:0">${esc(s.name)} ${esc(s.last_name)}</h3><div class="pill">${esc(s.matricula)}</div><div>${incomeBadge}</div></div></div><br><button class="btn light" onclick="editStudent(${s.id})">✏️ Editar ficha</button><button class="btn light" onclick="openStudentCamera(${s.id})">📷 Cambiar foto</button><button class="btn gold" onclick="closeModal();payFor(${s.id})">💵 Registrar pago</button></div><div><p><b>Tipo de ingreso:</b> ${s.new_income?'NUEVO INGRESO':'ALUMNO YA EXISTENTE'}</p><p><b>Ingreso:</b> ${fmtDate(s.enrollment_date)}</p><p><b>Plan:</b> ${esc(s.plan_name||s.plan)}</p><p><b>Cuota:</b> $${(+s.monthly_fee).toLocaleString('es-MX')}</p><p><b>Vencimiento:</b> ${fmtDate(paymentDue)}</p><p><b>Estado de pago:</b> ${status(paymentStatus)}</p><p><b>Estado del alumno:</b> ${esc(s.status)}</p><p><b>Disciplina:</b> ${esc(s.discipline_name||'—')} · <b>Grupo:</b> ${esc(s.group_name||'—')}</p></div></div><hr><div class="grid2"><div><p><b>Teléfono:</b> ${esc(s.phone)}</p><p><b>Correo:</b> ${esc(s.email)}</p></div><div><p><b>Tutor:</b> ${esc(s.tutor)}</p><p><b>Contacto:</b> ${esc(s.tutor_phone)}</p></div></div><hr><h3>Meses pagados</h3>${cht}<hr><h3>Historial de pagos</h3>${payTable(s.payments)}<hr><h3>Asistencia reciente</h3>${ah}`;
   modal('Ficha · '+esc(s.matricula),body,'Cerrar',closeModal)
