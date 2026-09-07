@@ -67,12 +67,31 @@ CREATE TABLE IF NOT EXISTS payment_allocations(id SERIAL PRIMARY KEY,payment_id 
   if(!b.rowCount){for(const x of ['Base','Plus','Premium','Elite']) await pool.query('INSERT INTO benefits(name,description,level) VALUES($1,$2,$3)',[x,'Beneficios del nivel '+x,x]);}
   const lp=await pool.query('SELECT id FROM locker_plans LIMIT 1');
   if(!lp.rowCount) for(const x of [['Mensual',100,1],['Semestral',550,6],['Anual',900,12]]) await pool.query('INSERT INTO locker_plans(name,price,months) VALUES($1,$2,$3)',x);
+  await pool.query(`CREATE TABLE IF NOT EXISTS matricula_counters(prefix TEXT NOT NULL, year INTEGER NOT NULL, next_number INTEGER NOT NULL DEFAULT 1, PRIMARY KEY(prefix,year))`);
   const stg=await pool.query('SELECT id FROM settings WHERE id=1');
   if(!stg.rowCount) await pool.query('INSERT INTO settings(id,config) VALUES(1,$1::jsonb)',[{"school_name": "EmpoderArte Escuela de Danza", "subtitle": "Escuela de Danza", "phone": "", "whatsapp": "", "email": "", "address": "", "facebook": "", "instagram": "", "primary_color": "#6b3fa0", "secondary_color": "#d4a84f", "sidebar_color": "#2d2138", "background_color": "#f7f4fa", "text_color": "#30253b", "currency": "MXN", "matricula_prefix": "EMP", "receipt_prefix": "REC", "default_due_day": 10, "whatsapp_days": 3, "tolerance_days": 0, "payment_methods": ["Efectivo", "Transferencia", "Tarjeta", "Otro"], "receipt_message": "Gracias por formar parte de EmpoderArte.", "qr_footer": "EmpoderArte · Escuela de Danza", "logo_url": "/logo-empoderarte.jpg", "logo_data": "", "locker_default_price": 100, "locker_default_months": 1, "whatsapp_message": "Hola {nombre}, te recordamos que tu mensualidad vence el {vencimiento}. Importe: {importe}. Gracias por formar parte de EmpoderArte."}]);
 }
 
 async function getConfig(){const r=await pool.query('SELECT config FROM settings WHERE id=1');return r.rowCount?(r.rows[0].config||{}):{}}
-async function matricula(db=pool){const c=await getConfig(),prefix=String(c.matricula_prefix||'EMP').toUpperCase().replace(/[^A-Z0-9]/g,'')||'EMP',y=new Date().getFullYear();const base=`${prefix}-${y}-`;const r=await db.query('SELECT matricula FROM students WHERE matricula LIKE $1',[`${base}%`]);let n=0;for(const row of r.rows){const value=String(row.matricula||'');const match=value.match(new RegExp('^'+base+'(\\d+)$'));if(match)n=Math.max(n,Number(match[1])||0)}n++;let candidate=`${base}${String(n).padStart(5,'0')}`;while((await db.query('SELECT 1 FROM students WHERE matricula=$1 LIMIT 1',[candidate])).rowCount){n++;candidate=`${base}${String(n).padStart(5,'0')}`}return candidate} async function receipt(){const c=await getConfig(),prefix=String(c.receipt_prefix||'REC').toUpperCase().replace(/[^A-Z0-9]/g,'')||'REC',y=new Date().getFullYear();const pattern=`${prefix}-${y}-%`;const start=prefix.length+7;const r=await pool.query("SELECT COALESCE(MAX(CAST(SUBSTRING(receipt_no FROM $2) AS INTEGER)),0) n FROM payments WHERE receipt_no LIKE $1",[pattern,start]);return `${prefix}-${y}-${String(Number(r.rows[0].n)+1).padStart(6,'0')}`}
+async function matricula(db=pool){
+  const c=await getConfig();
+  const prefix=String(c.matricula_prefix||'EMP').toUpperCase().replace(/[^A-Z0-9]/g,'')||'EMP';
+  const y=new Date().getFullYear();
+  const base=`${prefix}-${y}-`;
+  const maxStudents=await db.query(`SELECT COALESCE(MAX(CASE WHEN matricula ~ $1 THEN CAST(SUBSTRING(matricula FROM $2) AS INTEGER) ELSE 0 END),0) n FROM students WHERE matricula LIKE $3`,[`^${base}\\d+$`,String(base.length+1),`${base}%`]);
+  const maxTrash=await db.query(`SELECT COALESCE(MAX(CASE WHEN matricula ~ $1 THEN CAST(SUBSTRING(matricula FROM $2) AS INTEGER) ELSE 0 END),0) n FROM trash WHERE matricula LIKE $3`,[`^${base}\\d+$`,String(base.length+1),`${base}%`]);
+  const maxExisting=Math.max(Number(maxStudents.rows[0]?.n||0),Number(maxTrash.rows[0]?.n||0));
+  await db.query(`INSERT INTO matricula_counters(prefix,year,next_number) VALUES($1,$2,$3) ON CONFLICT(prefix,year) DO NOTHING`,[prefix,y,maxExisting+1]);
+  const r=await db.query(`UPDATE matricula_counters SET next_number=GREATEST(next_number,$3)+1 WHERE prefix=$1 AND year=$2 RETURNING next_number-1 AS n`,[prefix,y,maxExisting+1]);
+  let n=Number(r.rows[0].n);
+  let candidate=`${base}${String(n).padStart(5,'0')}`;
+  while((await db.query('SELECT 1 FROM students WHERE matricula=$1 LIMIT 1',[candidate])).rowCount){
+    n++;
+    candidate=`${base}${String(n).padStart(5,'0')}`;
+    await db.query('UPDATE matricula_counters SET next_number=GREATEST(next_number,$3) WHERE prefix=$1 AND year=$2',[prefix,y,n+1]);
+  }
+  return candidate;
+} async function receipt(){const c=await getConfig(),prefix=String(c.receipt_prefix||'REC').toUpperCase().replace(/[^A-Z0-9]/g,'')||'REC',y=new Date().getFullYear();const pattern=`${prefix}-${y}-%`;const start=prefix.length+7;const r=await pool.query("SELECT COALESCE(MAX(CAST(SUBSTRING(receipt_no FROM $2) AS INTEGER)),0) n FROM payments WHERE receipt_no LIKE $1",[pattern,start]);return `${prefix}-${y}-${String(Number(r.rows[0].n)+1).padStart(6,'0')}`}
 async function audit(u,a,m,id,d=''){await pool.query('INSERT INTO audit(user_id,action,module,record_id,detail) VALUES($1,$2,$3,$4,$5)',[u.id,a,m,id,d])}
 function auth(req,res,next){const t=(req.headers.authorization||'').replace(/^Bearer /,'');try{req.user=jwt.verify(t,JWT_SECRET);next()}catch(e){res.status(401).json({error:'Sesión expirada'})}}
 function director(req,res,next){if(req.user.role!=='director')return res.status(403).json({error:'Solo el director puede realizar esta acción'});next()}
