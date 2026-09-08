@@ -271,7 +271,6 @@ app.post('/api/trash/:id/restore',auth,director,async(q,s)=>{
 app.post('/api/delete',auth,async(q,s)=>{
   const b=q.body||{},entity=String(b.entity||'').toUpperCase(),id=Number(b.id);
   if(!id)return s.status(400).json({error:'Registro inválido'});
-  if(entity!=='PAGO'&&q.user?.role!=='director')return s.status(403).json({error:'Solo el Director puede eliminar este tipo de registro.'});
   const client=await pool.connect();
   try{
     await client.query('BEGIN');
