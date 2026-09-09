@@ -115,7 +115,7 @@ async function matricula(db=pool){
 }
 async function audit(u,a,m,id,d=''){await pool.query('INSERT INTO audit(user_id,action,module,record_id,detail) VALUES($1,$2,$3,$4,$5)',[u.id,a,m,id,d])}
 function auth(req,res,next){const t=(req.headers.authorization||'').replace(/^Bearer /,'');try{req.user=jwt.verify(t,JWT_SECRET);next()}catch(e){res.status(401).json({error:'Sesión expirada'})}}
-function director(req,res,next){if(String(req.user?.role||'').trim().toLowerCase()!=='director')return res.status(403).json({error:'Solo el director puede realizar esta acción'});next()}
+function director(req,res,next){if(req.user.role!=='director')return res.status(403).json({error:'Solo el director puede realizar esta acción'});next()}
 
 app.use(express.json({limit:'2mb'}));
 app.get('/',(q,s)=>s.sendFile(path.join(__dirname,'index.html')));
@@ -359,7 +359,7 @@ app.post('/api/trash/:id/restore',auth,director,async(q,s)=>{
 app.post('/api/delete',auth,async(q,s)=>{
   const b=q.body||{},entity=String(b.entity||'').toUpperCase(),id=Number(b.id);
   if(!id)return s.status(400).json({error:'Registro inválido'});
-  if(String(q.user?.role||'').trim().toLowerCase()!=='director')return s.status(403).json({error:'Solo el Director puede eliminar registros.'});
+  if(q.user?.role!=='director')return s.status(403).json({error:'Solo el Director puede eliminar registros.'});
   const client=await pool.connect();
   try{
     await client.query('BEGIN');
@@ -426,34 +426,6 @@ app.post('/api/delete',auth,async(q,s)=>{
       const x=await one('SELECT lp.*,l.number FROM locker_penalties lp LEFT JOIN lockers l ON l.id=lp.locker_id WHERE lp.id=$1',[id]); if(!x)throw Error('Penalización no encontrada');
       snapshot={record:await one('SELECT * FROM locker_penalties WHERE id=$1',[id])};name='Penalización locker '+(x.number||'');matricula='';
       await client.query('DELETE FROM locker_penalties WHERE id=$1',[id]);
-    } else if(entity==='PLAN'){
-      const x=await one('SELECT * FROM plans WHERE id=$1',[id]); if(!x)throw Error('Plan no encontrado');
-      const used=await one('SELECT id FROM students WHERE plan_id=$1 LIMIT 1',[id]);
-      if(used)throw Error('No se puede eliminar un plan que está asignado a alumnos');
-      snapshot={record:x};name=x.name;
-      await client.query('DELETE FROM plans WHERE id=$1',[id]);
-    } else if(entity==='DISCIPLINA'){
-      const x=await one('SELECT * FROM disciplines WHERE id=$1',[id]); if(!x)throw Error('Disciplina no encontrada');
-      const used=await one('SELECT id FROM schedules WHERE discipline_id=$1 LIMIT 1',[id]);
-      if(used)throw Error('No se puede eliminar una disciplina que está asignada a horarios');
-      snapshot={record:x};name=x.name;
-      await client.query('DELETE FROM disciplines WHERE id=$1',[id]);
-    } else if(entity==='HORARIO'){
-      const x=await one('SELECT s.*,d.name AS discipline_name,t.name AS teacher_name,t.last_name AS teacher_last_name FROM schedules s LEFT JOIN disciplines d ON d.id=s.discipline_id LEFT JOIN teachers t ON t.id=s.teacher_id WHERE s.id=$1',[id]); if(!x)throw Error('Horario no encontrado');
-      snapshot={record:await one('SELECT * FROM schedules WHERE id=$1',[id])};name='Horario '+(x.group_name||x.discipline_name||'');
-      await client.query('DELETE FROM schedules WHERE id=$1',[id]);
-    } else if(entity==='DISPOSITIVO_QR'){
-      const x=await one('SELECT * FROM qr_devices WHERE id=$1',[id]); if(!x)throw Error('Dispositivo QR no encontrado');
-      snapshot={record:x};name=x.name;
-      await client.query('DELETE FROM qr_devices WHERE id=$1',[id]);
-    } else if(entity==='DISPOSITIVO_FOTO'){
-      const x=await one('SELECT * FROM photo_devices WHERE id=$1',[id]); if(!x)throw Error('Dispositivo de fotos no encontrado');
-      snapshot={record:x};name=x.name;
-      await client.query('DELETE FROM photo_devices WHERE id=$1',[id]);
-    } else if(entity==='TIPO_PENALIZACION_LOCKER'){
-      const x=await one('SELECT * FROM locker_penalty_types WHERE id=$1',[id]); if(!x)throw Error('Tipo de penalización no encontrado');
-      snapshot={record:x};name=x.name;
-      await client.query('DELETE FROM locker_penalty_types WHERE id=$1',[id]);
     } else if(entity==='PROMOCION'){
       const x=await one('SELECT * FROM promotions WHERE id=$1',[id]); if(!x)throw Error('Promoción no encontrada');
       snapshot={record:x};name=x.name;
