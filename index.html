@@ -5,47 +5,25 @@
 .role-reception [onclick^="removeRecord"]{display:none!important}
 
 <style>
-.cred-print-wrap{display:flex;gap:22px;justify-content:center;flex-wrap:wrap;background:#eee;padding:18px;border-radius:18px}
-.cred-card{position:relative;width:330px;height:520px;overflow:hidden;border-radius:24px;border:2px solid #c99a32;box-shadow:0 10px 28px rgba(0,0,0,.18);font-family:Arial,Helvetica,sans-serif;box-sizing:border-box}
-.cred-front{background:linear-gradient(145deg,#fff 0%,#fbfaf7 58%,#eee9df 100%);color:#111}
-.cred-back{background:linear-gradient(145deg,#090909,#171717 60%,#050505);color:#fff}
-.cred-card:before{content:"";position:absolute;inset:-90px auto auto -80px;width:260px;height:260px;border-radius:50%;background:rgba(212,168,79,.18);transform:rotate(-20deg)}
-.cred-card:after{content:"";position:absolute;right:-100px;bottom:-80px;width:300px;height:220px;border-radius:50%;border-top:4px solid #d4a84f;transform:rotate(-12deg);opacity:.9}
-.cred-top{position:relative;z-index:2;text-align:center;padding:18px 18px 4px}
-.cred-logo{width:72px;height:72px;border-radius:50%;object-fit:cover;border:2px solid #d4a84f;background:#fff}
-.cred-brand{font-family:Georgia,serif;font-size:28px;margin:5px 0 0;line-height:1}
-.cred-brand span{color:#b88722;font-style:italic}
-.cred-sub{font-family:cursive;color:#b88722;font-size:16px;margin-top:2px}
-.cred-photo{position:relative;z-index:2;width:150px;height:150px;border:3px solid #c99a32;border-radius:18px;object-fit:cover;display:block;margin:8px auto}
-.cred-photo-placeholder{display:grid;place-items:center;background:#eee8dd;font-size:58px}
-.cred-name{position:relative;z-index:2;text-align:center;font-family:Georgia,serif;font-size:21px;font-weight:700;line-height:1.05;margin:8px 18px;text-transform:uppercase}
-.cred-role{position:relative;z-index:2;background:#050505;color:#fff;border-radius:18px;padding:7px 28px;margin:7px auto 10px;width:max-content;letter-spacing:5px;font-weight:700;font-size:13px}
-.cred-data{position:relative;z-index:2;padding:0 24px;font-size:14px;line-height:1.5}
-.cred-data b{display:block;font-size:12px;color:#b88722;text-transform:uppercase}
-.cred-qr{position:relative;z-index:2;width:78px;height:78px;border:3px solid #c99a32;background:#fff;border-radius:10px;padding:4px;object-fit:contain;margin:4px 0 0 22px}
-.cred-footer{position:absolute;z-index:3;bottom:12px;left:0;right:0;text-align:center;letter-spacing:4px;font-size:10px;font-weight:700}
-.cred-back .cred-brand{color:#fff}.cred-back .cred-brand span{color:#d4a84f}
-.cred-back .cred-sub{margin-bottom:28px}
-.cred-rule{height:2px;background:#d4a84f;margin:12px 34px 18px}
-.cred-message{margin:0 28px;border:2px solid #b88722;border-radius:14px;padding:14px;text-align:center;font-size:15px;line-height:1.35}
-.cred-list{margin:26px 34px 0;padding:0;list-style:none;font-size:14px;line-height:1.45}
-.cred-list li{margin:13px 0}.cred-loss{margin:22px 26px;background:linear-gradient(90deg,#9a6b16,#e0b94f,#9a6b16);color:#111;border-radius:12px;padding:12px 14px;text-align:center;font-weight:800}
-.cred-slogan{position:absolute;z-index:2;bottom:42px;left:25px;right:25px;text-align:center;color:#d4a84f;font-family:cursive;font-size:19px;line-height:1.15}
-.cred-editor{background:#fff;border:1px solid #e6d8bb;border-radius:14px;padding:14px;margin-bottom:16px}
-.cred-editor-title{font-weight:800;margin-bottom:10px}
-.cred-editor-grid{display:grid;grid-template-columns:repeat(2,minmax(180px,1fr));gap:10px}
-.cred-editor-grid label{font-size:12px;font-weight:700;color:#6a4b00}
-.cred-editor-grid input{display:block;width:100%;box-sizing:border-box;margin-top:5px;padding:9px;border:1px solid #d8c7a2;border-radius:9px;font-size:14px}
-.cred-editor-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
-@media(max-width:650px){.cred-editor-grid{grid-template-columns:1fr}}
-@media print{
- body *{visibility:hidden!important}
- #modal, #modal *{visibility:visible!important}
- #modal{position:absolute!important;left:0!important;top:0!important;width:100%!important;background:#fff!important}
- .modal-head,.modal-actions,.modal-close{display:none!important}
- .cred-print-wrap{background:#fff!important;padding:0!important;gap:12mm!important}
- .cred-card{box-shadow:none!important;break-inside:avoid;page-break-inside:avoid}
-}
+ .cred-print-wrap{display:flex;gap:18px;justify-content:center;flex-wrap:wrap;background:#f1f1f1;padding:18px;border-radius:18px}
+.role-reception button.btn.danger[onclick*="removeRecord"]{display:none!important}
+.cred-exact{position:relative;width:640px;aspect-ratio:640/970;overflow:hidden;border-radius:18px;box-shadow:0 10px 28px rgba(0,0,0,.18);background:#fff}
+.cred-exact img.cred-bg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
+.cred-overlay{position:absolute;inset:0;font-family:Arial,Helvetica,sans-serif}
+.cred-photo-exact{position:absolute;left:204px;top:239px;width:237px;height:219px;object-fit:cover;border-radius:18px;border:0}
+.cred-name-exact{position:absolute;left:95px;top:473px;width:450px;height:42px;display:flex;align-items:center;justify-content:center;background:#fff;color:#111;font-family:Georgia,serif;font-size:31px;font-weight:700;text-transform:uppercase;line-height:1;white-space:nowrap;overflow:hidden}
+.cred-role-exact{position:absolute;left:170px;top:517px;width:300px;height:47px;display:flex;align-items:center;justify-content:center;background:#050505;color:#fff;border:3px solid #c99a32;border-radius:28px;letter-spacing:7px;font-weight:700;font-size:22px}
+.cred-data-exact{position:absolute;left:126px;top:568px;width:285px;height:175px;background:#fff;color:#111;padding:0 0 0 0;font-size:21px;line-height:1.12}
+.cred-data-exact .lbl{display:block;font-size:19px;margin-top:0;color:#111}
+.cred-data-exact .val{display:block;font-size:25px;font-weight:700;margin-bottom:12px}
+.cred-qr-exact{position:absolute;left:61px;top:757px;width:165px;height:132px;background:#fff;border:0;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.cred-qr-exact img{width:128px;height:128px;display:block;object-fit:contain}
+.cred-edit-bar{background:#fff;border:1px solid #e6d8bb;border-radius:14px;padding:14px;margin-bottom:16px}
+.cred-edit-grid{display:grid;grid-template-columns:repeat(2,minmax(180px,1fr));gap:10px}
+.cred-edit-grid label{font-size:12px;font-weight:700;color:#6a4b00}.cred-edit-grid input{display:block;width:100%;box-sizing:border-box;margin-top:5px;padding:9px;border:1px solid #d8c7a2;border-radius:9px;font-size:14px}
+.cred-edit-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
+@media(max-width:850px){.cred-exact{width:min(640px,94vw)}.cred-edit-grid{grid-template-columns:1fr}}
+@media print{body *{visibility:hidden!important}.cred-print-wrap,.cred-print-wrap *{visibility:visible!important}.cred-print-wrap{position:absolute;left:0;top:0;background:#fff!important;padding:0!important;gap:8mm!important}.cred-exact{box-shadow:none!important;break-inside:avoid;page-break-inside:avoid}}
 </style>
 </style>
 <style id="empoderarte-functional-style">
@@ -247,51 +225,48 @@ function loadCredentialPeople(){
 }
 async function renderCred(){const type=$('credtype')?.value||'student',id=$('credsel')?.value;if(!id){$('cred').innerHTML='';return}const p=await api(type==='student'?'/api/students/'+id:'/api/teachers/'+id);$('cred').innerHTML=credentialMarkup(p,type);setTimeout(()=>{const q=$('credqr');if(q)makeQR('credqr','EMPODERARTE|'+(type==='student'?'ALUMNO':'MAESTRO')+'|'+p.matricula)},50)}
 function credentialPhoto(p,type){
-  if(type==='student'&&p.photo_data)return `<img class="cred-photo" src="${esc(p.photo_data)}" alt="Foto">`;
+  if(type==='student'&&p.photo_data)return `<img class="cred-photo-exact" src="${esc(p.photo_data)}" alt="Foto">`;
   const initials=((p.name||'')+' '+(p.last_name||'')).split(/\s+/).filter(Boolean).slice(0,2).map(x=>x[0]).join('').toUpperCase();
-  return `<div class="cred-photo cred-photo-placeholder">${esc(initials||'EA')}</div>`;
+  return `<div class="cred-photo-exact" style="background:#eee8dd;display:grid;place-items:center;font:700 64px Georgia,serif;color:#8b651b">${esc(initials||'EA')}</div>`;
 }
 function credentialMarkup(p,type){
   const role=type==='student'?'ALUMNO':'MAESTRO';
   const discipline=p.discipline||p.plan||'Danza';
   const date=p.enrollment_date||p.created_at||'';
-  const logo=appConfig.logo_data||appConfig.logo_url||'/logo-empoderarte.jpg';
   const safeName=esc((p.name||'')+' '+(p.last_name||''));
   const safeMat=esc(p.matricula||'—');
   const safeDate=esc(fmtDate(date));
   const safeDisc=esc(discipline);
-  return `<div class="cred-editor">
-    <div class="cred-editor-title">✏️ Editar credencial antes de descargar</div>
-    <div class="cred-editor-grid">
+  const photo=credentialPhoto(p,type);
+  return `<div class="cred-edit-bar">
+    <b>🪪 Credencial EmpoderArte — diseño oficial</b>
+    <div class="cred-edit-grid" style="margin-top:10px">
       <label>Nombre completo<input id="credEditName" value="${safeName}" oninput="updateCredentialPreview()"></label>
       <label>Matrícula<input id="credEditMat" value="${safeMat}" oninput="updateCredentialPreview()"></label>
       <label>Fecha de ingreso<input id="credEditDate" value="${safeDate}" oninput="updateCredentialPreview()"></label>
       <label>Disciplina<input id="credEditDisc" value="${safeDisc}" oninput="updateCredentialPreview()"></label>
     </div>
-    <div class="cred-editor-actions">
-      <button class="btn" onclick="downloadCredentialEditable()">⬇️ Descargar editable</button>
-      <button class="btn primary" onclick="window.print()">🖨 Imprimir / Guardar PDF</button>
+    <div class="cred-edit-actions">
+      <button class="btn gold" onclick="downloadCredentialPNG()">⬇️ Descargar credencial</button>
+      <button class="btn primary" onclick="window.print()">🖨 Imprimir / PDF</button>
     </div>
   </div>
   <div class="cred-print-wrap" id="credentialPreview">
-    <div class="cred-card cred-front">
-      <div class="cred-top"><img class="cred-logo" src="${esc(logo)}"><div class="cred-brand">Empoder<span>Arte</span></div><div class="cred-sub">Escuela de Danza</div></div>
-      ${credentialPhoto(p,type)}
-      <div class="cred-name" id="credPreviewName">${safeName}</div>
-      <div class="cred-role">${role}</div>
-      <div class="cred-data"><b>Matrícula</b><strong id="credPreviewMat">${safeMat}</strong><b>Fecha de ingreso</b><strong id="credPreviewDate">${safeDate}</strong><b>Disciplina</b><strong id="credPreviewDisc">${safeDisc}</strong></div>
-      <div id="credqr" class="cred-qr"></div>
-      <div class="cred-footer">EMPODERARTE</div>
+    <div class="cred-exact" id="credentialFrontExact">
+      <img class="cred-bg" src="/credential-front.jpg" alt="Credencial frente">
+      <div class="cred-overlay">
+        ${photo}
+        <div class="cred-name-exact" id="credPreviewName">${safeName}</div>
+        <div class="cred-role-exact">${role}</div>
+        <div class="cred-data-exact">
+          <span class="lbl">Matrícula:</span><span class="val" id="credPreviewMat">${safeMat}</span>
+          <span class="lbl">Fecha de ingreso:</span><span class="val" id="credPreviewDate">${safeDate}</span>
+          <span class="lbl">Disciplina:</span><span class="val" id="credPreviewDisc">${safeDisc}</span>
+        </div>
+        <div id="credqr" class="cred-qr-exact"></div>
+      </div>
     </div>
-    <div class="cred-card cred-back">
-      <div class="cred-top"><img class="cred-logo" src="${esc(logo)}"><div class="cred-brand">Empoder<span>Arte</span></div><div class="cred-sub">Escuela de Danza</div></div>
-      <div class="cred-rule"></div>
-      <div class="cred-message">Esta credencial acredita que el portador es ${type==='student'?'alumno(a)':'maestro(a)'} de EmpoderArte y forma parte de nuestra comunidad.</div>
-      <ul class="cred-list"><li>🎓 Respeta y cuida tu credencial.</li><li>👥 Úsala en todo momento dentro de las instalaciones.</li><li>🛡️ En caso de pérdida, repórtala de inmediato.</li></ul>
-      <div class="cred-loss">La pérdida de credencial tiene un costo de: <strong>$150 MXN</strong></div>
-      <div class="cred-slogan">El arte de formar<br>mejores personas ♡</div>
-      <div class="cred-footer">EMPODERARTE</div>
-    </div>
+    <div class="cred-exact" id="credentialBackExact"><img class="cred-bg" src="/credential-back.jpg" alt="Credencial reverso"></div>
   </div>`;
 }
 function updateCredentialPreview(){
@@ -301,30 +276,29 @@ function updateCredentialPreview(){
   if($('credPreviewDate'))$('credPreviewDate').textContent=get('credEditDate');
   if($('credPreviewDisc'))$('credPreviewDisc').textContent=get('credEditDisc');
 }
-function downloadCredentialEditable(){
-  const name=$('credEditName')?.value||'', mat=$('credEditMat')?.value||'', date=$('credEditDate')?.value||'', disc=$('credEditDisc')?.value||'';
-  const preview=$('credentialPreview');
-  if(!preview){toast('No hay credencial para descargar');return}
-  const clone=preview.cloneNode(true);
-  const qr=clone.querySelector('#credqr'); if(qr) qr.innerHTML='';
-  const html=`<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Credencial EmpoderArte - ${name}</title>
-  <style>${document.querySelector('style')?.textContent||''}.cred-card{margin:10px}.cred-print-wrap{display:flex;gap:18px;flex-wrap:wrap}.edit-note{font-family:Arial;padding:10px;background:#fff7df;border:1px solid #d4a84f;margin-bottom:15px}.editable{outline:1px dashed #b88722;min-width:100px}</style></head>
-  <body><div class="edit-note">Credencial editable de EmpoderArte. Puedes modificar nombre, matrícula, fecha y disciplina directamente en este archivo y después imprimirlo.</div>
-  ${clone.outerHTML}
-  <script>document.querySelectorAll('.cred-name,.cred-data strong').forEach(e=>e.contentEditable='true');<\/script>
-  </body></html>`;
-  const blob=new Blob([html],{type:'text/html;charset=utf-8'});
-  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
-  a.download='Credencial_EmpoderArte_'+(name||'persona').replace(/\s+/g,'_')+'.html';
-  document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
-  toast('Credencial editable descargada');
+async function downloadCredentialPNG(){
+  const name=$('credEditName')?.value||'persona',mat=$('credEditMat')?.value||'',date=$('credEditDate')?.value||'',disc=$('credEditDisc')?.value||'';
+  const type=$('credtype')?.value||'student',role=type==='student'?'ALUMNO':'MAESTRO';
+  const canvas=document.createElement('canvas');canvas.width=1300;canvas.height=970;const ctx=canvas.getContext('2d');
+  const load=src=>new Promise((resolve,reject)=>{const im=new Image();im.onload=()=>resolve(im);im.onerror=reject;im.src=src+'?v=1'});
+  try{
+    const [front,back]=await Promise.all([load('/credential-front.jpg'),load('/credential-back.jpg')]);
+    ctx.drawImage(front,0,0,640,970);ctx.drawImage(back,660,0,640,970);
+    ctx.fillStyle='#fff';ctx.fillRect(95,473,450,42);ctx.fillStyle='#111';ctx.font='700 31px Georgia';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(name.toUpperCase(),320,494,445);
+    ctx.fillStyle='#fff';ctx.fillRect(126,568,285,175);ctx.textAlign='left';ctx.font='19px Arial';ctx.fillText('Matrícula:',126,588);ctx.font='700 25px Arial';ctx.fillText(mat,126,617);ctx.font='19px Arial';ctx.fillText('Fecha de ingreso:',126,654);ctx.font='700 25px Arial';ctx.fillText(date,126,683);ctx.font='19px Arial';ctx.fillText('Disciplina:',126,720);ctx.font='700 25px Arial';ctx.fillText(disc,126,749);
+    if(role!=='ALUMNO'){ctx.fillStyle='#fff';ctx.fillRect(170,517,300,47);ctx.fillStyle='#050505';ctx.fillRect(173,520,294,41);ctx.fillStyle='#fff';ctx.font='700 22px Arial';ctx.textAlign='center';ctx.fillText(role,320,541);}
+    if(window.__credentialPhotoData){const ph=await load(window.__credentialPhotoData);ctx.save();ctx.beginPath();ctx.roundRect(204,239,237,219,18);ctx.clip();ctx.drawImage(ph,204,239,237,219);ctx.restore();}
+    const qr=await load('https://quickchart.io/qr?text='+encodeURIComponent('EMPODERARTE|'+role+'|'+mat)+'&size=180');ctx.fillStyle='#fff';ctx.fillRect(61,757,165,132);ctx.drawImage(qr,79,759,128,128);
+    const a=document.createElement('a');a.download='Credencial_EmpoderArte_'+name.replace(/\s+/g,'_')+'.png';a.href=canvas.toDataURL('image/png');document.body.appendChild(a);a.click();a.remove();toast('Credencial descargada correctamente');
+  }catch(e){console.error(e);alert('No se pudo generar la credencial para descargar. Puedes usar Imprimir / PDF.');}
 }
-
 async function credentialFor(type,id){
   const p=await api(type==='student'?'/api/students/'+id:'/api/teachers/'+id);
+  window.__credentialPhotoData=type==='student'?(p.photo_data||''):'';
   modal('Credencial · '+esc(type==='student'?'Alumno':'Maestro'),credentialMarkup(p,type),'Cerrar',closeModal);
   setTimeout(()=>{const q=$('credqr');if(q)makeQR('credqr','EMPODERARTE|'+(type==='student'?'ALUMNO':'MAESTRO')+'|'+p.matricula)},50);
 }
+
 function makeQR(id,text){const el=$(id);if(!el)return;el.innerHTML=`<img src="https://quickchart.io/qr?text=${encodeURIComponent(text)}&size=180" width="180" height="180" alt="QR">`}
 async function reports(){const d=await api('/api/report');const nuevos=Array.isArray(d.nuevos_ingresos)?d.nuevos_ingresos:[];const nuevosHtml=nuevos.length?`<div class="tablewrap"><table class="table"><tr><th>Alumno</th><th>Matrícula</th><th>Fecha de ingreso</th><th>Plan</th><th></th></tr>${nuevos.map(s=>`<tr><td><b>${esc(s.name)} ${esc(s.last_name)}</b></td><td>${esc(s.matricula)}</td><td>${fmtDate(s.enrollment_date)}</td><td>${esc(s.plan||'—')}</td><td><button class="btn light" onclick="profile(${s.id})">Ficha</button></td></tr>`).join('')}</table></div>`:'<div class="empty">No hay alumnos marcados como NUEVO INGRESO en este mes.</div>';$('content').innerHTML=`<div class="cards"><div class="card"><div class="muted">Alumnos registrados</div><div class="metric">${d.alumnos}</div></div><div class="card"><div class="muted">Alumnos activos</div><div class="metric">${d.activos}</div></div><div class="card"><div class="muted">Ingresos del mes</div><div class="metric">$${(+d.ingresos).toLocaleString('es-MX')}</div></div><div class="card"><div class="muted">Vencidos</div><div class="metric">${d.vencidos}</div></div><div class="card"><div class="muted">Nuevos ingresos del mes</div><div class="metric">${d.inscripciones_mes||0}</div></div></div><div class="section card"><div class="sectionhead"><h3>🆕 Alumnos nuevos del mes</h3><span class="pill">NUEVO INGRESO</span></div>${nuevosHtml}</div>`}
 async function alerts(){const r=await api('/api/monthly');const a=r.filter(x=>x.payment_status==='Vencido'||x.due_date===todayLocal());$('content').innerHTML=`<div class="card"><h3>🔔 Vencimientos y recordatorios</h3><div class="notice">Aquí aparecen los alumnos que tienen vencimiento hoy o que ya vencieron. Un vencimiento permanece visible hasta que se registra el pago; después desaparece automáticamente.</div><br><div class="tablewrap"><table class="table"><tr><th>Alumno</th><th>Vencimiento</th><th>Estado</th><th>Importe</th><th></th></tr>${a.map(x=>`<tr><td>${esc(x.name)} ${esc(x.last_name)}<br><small>${esc(x.matricula)}</small></td><td>${fmtDate(x.due_date||'—')}</td><td>${status(x.payment_status)}</td><td>$${(+x.monthly_fee).toLocaleString('es-MX',{minimumFractionDigits:2})}</td><td>${x.phone?`<button class="btn primary" onclick="wa('${esc(x.phone)}','${esc(x.name)}','${esc(x.due_date||'')}','${+x.monthly_fee}')">📲 WhatsApp</button>`:''}<button class="btn gold" onclick="payFor(${x.id})">Cobrar</button><button class="btn danger" onclick="removeRecord('ALUMNO',${x.id},'el alumno')">🗑 Eliminar</button></td></tr>`).join('')||'<tr><td colspan="5"><div class="empty">No hay vencimientos.</div></td></tr>'}</table></div></div>`}
@@ -386,6 +360,7 @@ async function openStudentCamera(id){if(id===null){alert('Primero crea el alumno
 
 async function scanAttendance(){const devs=await api('/api/qr-devices');modal('Lector QR · Asistencia',`<div class="notice">Conecta el lector QR USB/Bluetooth como teclado. Coloca el cursor en el campo y escanea la credencial; el lector normalmente envía ENTER al terminar.</div><label>Dispositivo</label><select id="qrdev"><option value="">Lector no especificado</option>${devs.filter(x=>x.active!==0).map(d=>`<option value="${d.id}">${esc(d.name)}</option>`).join('')}</select><label>Matrícula / código QR</label><input id="qrscan" autofocus placeholder="Escanea aquí…"><div id="qrresult" style="margin-top:14px"></div>`, 'Cerrar', closeModal);setTimeout(()=>{const el=$('qrscan');el?.focus();if(el)el.onkeydown=async e=>{if(e.key==='Enter'){e.preventDefault();const code=el.value.trim();if(!code)return;try{const d=await api('/api/attendance/scan',{method:'POST',body:JSON.stringify({code,device_id:$('qrdev').value||null})});showAccessResult(d);el.value='';}catch(err){$('qrresult').innerHTML=`<div class="card" style="border:2px solid var(--bad)"><h2>⛔ Acceso restringido</h2><p>${esc(err.message)}</p></div>`;el.select()}}}},100)}
 function showAccessResult(d){const ok=d.allowed;const s=d.student||{};$('qrresult').innerHTML=`<div class="card" style="border:2px solid ${ok?'var(--ok)':'var(--bad)'};text-align:center"><div style="font-size:48px">${ok?'✅':'⛔'}</div>${photoTag(s.photo_data,'Foto')}<h2>${ok?'Acceso permitido':'Acceso restringido'}</h2><h3>${esc(s.name||'')} ${esc(s.last_name||'')}</h3><div class="pill">${esc(s.matricula||'')}</div><p>${esc(d.reason||'')}</p><p><b>Vencimiento:</b> ${fmtDate(s.due_date)}</p>${d.schedule?`<p><b>Clase:</b> ${esc(d.schedule.discipline_name||'')} · ${esc(d.schedule.group_name||'')}</p>`:''}</div>`}
+function newTeacher(){modal('Nuevo maestro',`<div class="formgrid"><div><label>Nombre *</label><input id="tn"></div><div><label>Apellidos *</label><input id="tl"></div><div><label>Teléfono</label><input id="tp"></div><div><label>Correo</label><input id="te" type="email"></div><div><label>Disciplina</label><input id="td" placeholder="Ej. Ballet, Jazz…"></div><div><label>Tarifa por hora</label><input id="tr" type="number" min="0" step="0.01" value="0"></div><div><label>Estado</label><select id="ts"><option>Activo</option><option>Inactivo</option></select></div><div class="full"><label>Notas</label><textarea id="to"></textarea></div></div>`,'Crear maestro',async()=>{const d=await api('/api/teachers',{method:'POST',body:JSON.stringify({name:$('tn').value,last_name:$('tl').value,phone:$('tp').value,email:$('te').value,discipline:$('td').value,rate_hour:Number($('tr').value||0),status:$('ts').value,notes:$('to').value})});closeModal();toast('Maestro creado: '+d.matricula);teachers()})}
 async function teacherAttendance(id){const t=await api('/api/teachers/'+id);const hist=t.attendance||[];const history=hist.length?'<hr><h3>Historial reciente</h3><div class="tablewrap"><table class="table"><tr><th>Fecha</th><th>Entrada</th><th>Salida</th><th>Disciplina</th></tr>'+hist.map(a=>`<tr><td>${fmtDate(a.attended_at)}</td><td>${esc(a.entry_time||'—')}</td><td>${esc(a.exit_time||'—')}</td><td>${esc(a.discipline||'')}</td></tr>`).join('')+'</table></div>':'<div class="empty">Sin asistencia registrada.</div>';if(user?.role!=='director'){const today=todayLocal();const open=hist.find(a=>a.attended_at===today&&a.entry_time&&!a.exit_time);const action=open?'salida':'entrada';modal('Asistencia de maestro',`<div class="notice"><b>${esc(t.name)} ${esc(t.last_name)}</b><br>${esc(t.matricula)}${user?.role==='director'?` · $${(+t.rate_hour).toLocaleString('es-MX')}/hora`:''}<br><b>La hora se registra automáticamente. Recepción no puede modificarla.</b></div>${history}<hr><h3>${open?'Registrar salida':'Registrar entrada'}</h3><label>Fecha</label><input value="${today}" readonly><label>Hora que se registrará</label><input value="${new Date().toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit',hour12:false})}" readonly><label>Disciplina</label><input value="${esc(t.discipline||'')}" readonly>`,'Registrar '+(open?'salida':'entrada'),async()=>{await api('/api/teacher-attendance',{method:'POST',body:JSON.stringify({teacher_id:id,action})});closeModal();toast('Asistencia registrada automáticamente');teachers()});return}modal('Asistencia de maestro',`<div class="notice"><b>${esc(t.name)} ${esc(t.last_name)}</b><br>${esc(t.matricula)}${user?.role==='director'?` · $${(+t.rate_hour).toLocaleString('es-MX')}/hora`:''}<br><b>El Director puede corregir registros cuando sea necesario.</b></div>${history}<hr><h3>Registrar nueva asistencia</h3><label>Fecha</label><input id="taf" type="date" value="${todayLocal()}"><label>Disciplina de esta hora</label><input id="tad" value="${esc(t.discipline||'')}"><label>Entrada</label><input id="tae" type="time"><label>Salida</label><input id="tas" type="time"><label>Notas</label><input id="tan">`,'Guardar asistencia',async()=>{await api('/api/teacher-attendance',{method:'POST',body:JSON.stringify({teacher_id:id,attended_at:$('taf').value,discipline:$('tad').value,entry_time:$('tae').value,exit_time:$('tas').value,notes:$('tan').value})});closeModal();toast('Asistencia de maestro registrada');teachers()})}
 
 async function promotions(){const r=await api('/api/promotions');$('content').innerHTML=`<div class="sectionhead"><h3>Promociones</h3>${user.role==='director'?'<button class="btn primary" onclick="newPromotion()">＋ Nueva promoción</button>':''}</div><div class="cards">${r.map(p=>`<div class="card"><h3>${esc(p.name)}</h3><p>${esc(p.description)}</p><b>${p.discount}${p.kind==='Porcentaje'?'%':' MXN'} de descuento</b><p class="small">${p.months||1} mes(es) · cuota $${(+p.fee||0).toLocaleString('es-MX')} · ${fmtDate(p.start_date)||'Sin inicio'} → ${fmtDate(p.end_date||p.expires_at)||'Sin vencimiento'}</p><div class="muted">${p.active?'Activa':'Inactiva'}</div>${user.role==='director'?`<br><button class="btn light" onclick='editPromotion(${p.id})'>✏️ Editar</button> <button class="btn danger" onclick="removeRecord('PROMOCION',${p.id},'la promoción')">🗑 Eliminar</button>`:''}</div>`).join('')||'<div class="empty">No hay promociones.</div>'}</div>`}

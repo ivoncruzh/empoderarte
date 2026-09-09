@@ -268,7 +268,7 @@ app.post('/api/trash/:id/restore',auth,director,async(q,s)=>{
       const vals=cols.map(k=>row[k]??null),ph=cols.map((_,i)=>'$'+(i+1)).join(',');
       await client.query(`INSERT INTO ${table}(${cols.join(',')}) VALUES(${ph})`,vals);
     };
-    const bump=async(table)=>{const allowed=['students','payments','attendance','teachers','teacher_attendance','personal','personal_attendance','lockers','locker_payments','locker_penalties','promotions','benefits','locker_plans','monthly_charges','payment_allocations'];if(allowed.includes(table))await client.query(`SELECT setval(pg_get_serial_sequence('${table}','id'),COALESCE((SELECT MAX(id) FROM ${table}),1),true)`)};
+    const bump=async(table)=>{const allowed=['students','payments','attendance','teachers','teacher_attendance','personal','personal_attendance','lockers','locker_payments','locker_penalties','promotions','benefits','locker_plans','monthly_charges','payment_allocations','plans','disciplines','schedules','qr_devices','photo_devices','locker_penalty_types'];if(allowed.includes(table))await client.query(`SELECT setval(pg_get_serial_sequence('${table}','id'),COALESCE((SELECT MAX(id) FROM ${table}),1),true)`)};
     if(x.entity_type==='ALUMNO'){
       if(await exists('SELECT id FROM students WHERE id=$1',[record.id]))throw Error('Ya existe un alumno con ese ID');
       await insert('students',['id','matricula','name','last_name','birth_date','phone','email','tutor','tutor_phone','plan','status','enrollment_date','monthly_fee','due_date','benefit_level','notes','photo_data','plan_id','discipline_id','group_name','plan_start_date','plan_end_date','created_at','updated_at'],record);
@@ -344,6 +344,27 @@ app.post('/api/trash/:id/restore',auth,director,async(q,s)=>{
       }else{
         await insert('users',['id','name','email','password_hash','role','active','created_at','last_login'],{...record,active:record.active??1});
       }
+    } else if(x.entity_type==='PLAN'){
+      if(await exists('SELECT id FROM plans WHERE id=$1',[record.id]))throw Error('Ese plan ya existe');
+      await insert('plans',['id','name','months','fee','start_date','end_date','active','description','created_at','updated_at'],record);await bump('plans');
+    } else if(x.entity_type==='DISCIPLINA'){
+      if(await exists('SELECT id FROM disciplines WHERE id=$1',[record.id]))throw Error('Esa disciplina ya existe');
+      await insert('disciplines',['id','name','description','active','created_at','updated_at'],record);await bump('disciplines');
+    } else if(x.entity_type==='HORARIO'){
+      if(await exists('SELECT id FROM schedules WHERE id=$1',[record.id]))throw Error('Ese horario ya existe');
+      const discOk=!record.discipline_id||await exists('SELECT id FROM disciplines WHERE id=$1',[record.discipline_id]);
+      const teacherOk=!record.teacher_id||await exists('SELECT id FROM teachers WHERE id=$1',[record.teacher_id]);
+      if(!discOk)record.discipline_id=null;if(!teacherOk)record.teacher_id=null;
+      await insert('schedules',['id','discipline_id','teacher_id','group_name','day_of_week','start_time','end_time','room','active','created_at','updated_at'],record);await bump('schedules');
+    } else if(x.entity_type==='DISPOSITIVO_QR'){
+      if(await exists('SELECT id FROM qr_devices WHERE id=$1',[record.id]))throw Error('Ese lector QR ya existe');
+      await insert('qr_devices',['id','name','device_type','identifier','active','notes','created_at'],record);await bump('qr_devices');
+    } else if(x.entity_type==='DISPOSITIVO_FOTO'){
+      if(await exists('SELECT id FROM photo_devices WHERE id=$1',[record.id]))throw Error('Ese dispositivo de fotos ya existe');
+      await insert('photo_devices',['id','name','device_type','device_id','active','notes','created_at'],record);await bump('photo_devices');
+    } else if(x.entity_type==='TIPO_PENALIZACION_LOCKER'){
+      if(await exists('SELECT id FROM locker_penalty_types WHERE id=$1',[record.id]))throw Error('Ese tipo de penalización ya existe');
+      await insert('locker_penalty_types',['id','name','amount','active','description','created_at','updated_at'],record);await bump('locker_penalty_types');
     } else if(x.entity_type==='PLAN_LOCKER'){
       if(await exists('SELECT id FROM locker_plans WHERE id=$1',[record.id]))throw Error('Ese plan ya existe');
       if(await exists('SELECT id FROM locker_plans WHERE name=$1',[record.name]))throw Error('Ya existe un plan con ese nombre');
@@ -440,6 +461,35 @@ app.post('/api/delete',auth,async(q,s)=>{
       if(x.email==='director@empoderarte.local')throw Error('El Director principal está protegido');
       snapshot={record:x};name=x.name;
       await client.query('UPDATE users SET active=0 WHERE id=$1',[id]);
+    } else if(entity==='PLAN'){
+      const x=await one('SELECT * FROM plans WHERE id=$1',[id]); if(!x)throw Error('Plan no encontrado');
+      snapshot={record:x};name=x.name;
+      await client.query('UPDATE students SET plan_id=NULL,updated_at=CURRENT_TIMESTAMP WHERE plan_id=$1',[id]);
+      await client.query('UPDATE monthly_charges SET plan_id=NULL,updated_at=CURRENT_TIMESTAMP WHERE plan_id=$1',[id]);
+      await client.query('DELETE FROM plans WHERE id=$1',[id]);
+    } else if(entity==='DISCIPLINA'){
+      const x=await one('SELECT * FROM disciplines WHERE id=$1',[id]); if(!x)throw Error('Disciplina no encontrada');
+      snapshot={record:x};name=x.name;
+      await client.query('UPDATE students SET discipline_id=NULL,updated_at=CURRENT_TIMESTAMP WHERE discipline_id=$1',[id]);
+      await client.query('UPDATE schedules SET discipline_id=NULL,updated_at=CURRENT_TIMESTAMP WHERE discipline_id=$1',[id]);
+      await client.query('DELETE FROM disciplines WHERE id=$1',[id]);
+    } else if(entity==='HORARIO'){
+      const x=await one('SELECT * FROM schedules WHERE id=$1',[id]); if(!x)throw Error('Horario no encontrado');
+      snapshot={record:x};name='Horario';
+      await client.query('DELETE FROM schedules WHERE id=$1',[id]);
+    } else if(entity==='DISPOSITIVO_QR'){
+      const x=await one('SELECT * FROM qr_devices WHERE id=$1',[id]); if(!x)throw Error('Lector QR no encontrado');
+      snapshot={record:x};name=x.name;
+      await client.query('DELETE FROM qr_devices WHERE id=$1',[id]);
+    } else if(entity==='DISPOSITIVO_FOTO'){
+      const x=await one('SELECT * FROM photo_devices WHERE id=$1',[id]); if(!x)throw Error('Dispositivo de fotos no encontrado');
+      snapshot={record:x};name=x.name;
+      await client.query('DELETE FROM photo_devices WHERE id=$1',[id]);
+    } else if(entity==='TIPO_PENALIZACION_LOCKER'){
+      const x=await one('SELECT * FROM locker_penalty_types WHERE id=$1',[id]); if(!x)throw Error('Tipo de penalización no encontrado');
+      snapshot={record:x};name=x.name;
+      await client.query('UPDATE locker_penalties SET penalty_type_id=NULL WHERE penalty_type_id=$1',[id]);
+      await client.query('DELETE FROM locker_penalty_types WHERE id=$1',[id]);
     } else if(entity==='PLAN_LOCKER'){
       const x=await one('SELECT * FROM locker_plans WHERE id=$1',[id]); if(!x)throw Error('Plan no encontrado');
       const used=await one('SELECT id FROM lockers WHERE plan_id=$1 LIMIT 1',[id]); if(used)throw Error('No se puede eliminar un plan que tiene lockers asociados');
