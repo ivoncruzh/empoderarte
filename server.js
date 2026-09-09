@@ -120,6 +120,17 @@ function director(req,res,next){if(req.user.role!=='director')return res.status(
 app.use(express.json({limit:'2mb'}));
 app.get('/',(q,s)=>s.sendFile(path.join(__dirname,'index.html')));
 app.get('/logo-empoderarte.jpg',(q,s)=>s.sendFile(path.join(__dirname,'logo-empoderarte.jpg')));
+app.get('/api/credential-qr',async(q,s)=>{
+  try{
+    const text=String(q.query.text||'').slice(0,500);
+    if(!text)return s.status(400).send('Texto requerido');
+    const r=await fetch('https://quickchart.io/qr?size=300&margin=0&text='+encodeURIComponent(text));
+    if(!r.ok)throw Error('No se pudo generar el QR');
+    s.set('Content-Type',r.headers.get('content-type')||'image/png');
+    s.set('Cache-Control','public, max-age=3600');
+    s.send(Buffer.from(await r.arrayBuffer()));
+  }catch(e){console.error(e);s.status(502).send('No se pudo generar el QR');}
+});
 app.use(express.static(path.join(__dirname,'public')));
 
 app.get('/health',(q,s)=>s.json({ok:true,app:'EmpoderArte',version:'2.5.0'}));
@@ -401,6 +412,21 @@ app.post('/api/delete',auth,async(q,s)=>{
       await client.query('DELETE FROM payments WHERE student_id=$1',[id]);
       await client.query('DELETE FROM monthly_charges WHERE student_id=$1',[id]);
       await client.query('DELETE FROM attendance WHERE student_id=$1',[id]);
+      // Compatibilidad con versiones anteriores: elimina cualquier otra tabla que
+      // tenga una FK directa student_id -> students.id antes de borrar al alumno.
+      const refs=await all(`SELECT c.conrelid::regclass::text AS table_name,a.attname AS column_name
+        FROM pg_constraint c
+        JOIN pg_attribute a ON a.attrelid=c.conrelid AND a.attnum=c.conkey[1] AND NOT a.attisdropped
+        WHERE c.contype='f' AND c.confrelid='students'::regclass
+          AND array_length(c.conkey,1)=1 AND array_length(c.confkey,1)=1
+          AND c.confkey[1]=(SELECT attnum FROM pg_attribute WHERE attrelid='students'::regclass AND attname='id')`);
+      const handled=new Set(['payments','attendance','lockers','monthly_charges']);
+      for(const ref of refs){
+        const table=String(ref.table_name).replace(/^.*\./,'');
+        if(!handled.has(table) && /^[a-z_][a-z0-9_]*$/.test(table) && /^[a-z_][a-z0-9_]*$/.test(ref.column_name)){
+          await client.query(`DELETE FROM "${table}" WHERE "${ref.column_name}"=$1`,[id]);
+        }
+      }
       await client.query('DELETE FROM students WHERE id=$1',[id]);
     } else if(entity==='PAGO'){
       const x=await one('SELECT * FROM payments WHERE id=$1',[id]); if(!x)throw Error('Pago no encontrado');
