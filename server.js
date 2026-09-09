@@ -412,20 +412,35 @@ app.post('/api/delete',auth,async(q,s)=>{
       await client.query('DELETE FROM payments WHERE student_id=$1',[id]);
       await client.query('DELETE FROM monthly_charges WHERE student_id=$1',[id]);
       await client.query('DELETE FROM attendance WHERE student_id=$1',[id]);
-      // Compatibilidad con versiones anteriores: elimina cualquier otra tabla que
-      // tenga una FK directa student_id -> students.id antes de borrar al alumno.
-      const refs=await all(`SELECT c.conrelid::regclass::text AS table_name,a.attname AS column_name
+      // Compatibilidad con versiones anteriores: algunas instalaciones pueden
+      // conservar tablas adicionales con FK hacia students. Primero eliminamos
+      // cualquier registro dependiente, incluso si la FK es compuesta, para que
+      // la eliminación no falle por una restricción antigua.
+      const refs=await all(`SELECT c.conrelid::regclass::text AS table_name,
+        array_agg(a.attname ORDER BY u.ord) AS local_columns,
+        array_agg(pa.attname ORDER BY u.ord) AS parent_columns
         FROM pg_constraint c
-        JOIN pg_attribute a ON a.attrelid=c.conrelid AND a.attnum=c.conkey[1] AND NOT a.attisdropped
+        JOIN LATERAL unnest(c.conkey) WITH ORDINALITY u(attnum,ord) ON true
+        JOIN LATERAL unnest(c.confkey) WITH ORDINALITY v(attnum,ord) ON v.ord=u.ord
+        JOIN pg_attribute a ON a.attrelid=c.conrelid AND a.attnum=u.attnum AND NOT a.attisdropped
+        JOIN pg_attribute pa ON pa.attrelid=c.confrelid AND pa.attnum=v.attnum AND NOT pa.attisdropped
         WHERE c.contype='f' AND c.confrelid='students'::regclass
-          AND array_length(c.conkey,1)=1 AND array_length(c.confkey,1)=1
-          AND c.confkey[1]=(SELECT attnum FROM pg_attribute WHERE attrelid='students'::regclass AND attname='id')`);
+        GROUP BY c.oid,c.conrelid`);
       const handled=new Set(['payments','attendance','lockers','monthly_charges']);
       for(const ref of refs){
         const table=String(ref.table_name).replace(/^.*\./,'');
-        if(!handled.has(table) && /^[a-z_][a-z0-9_]*$/.test(table) && /^[a-z_][a-z0-9_]*$/.test(ref.column_name)){
-          await client.query(`DELETE FROM "${table}" WHERE "${ref.column_name}"=$1`,[id]);
+        const locals=Array.isArray(ref.local_columns)?ref.local_columns:[];
+        const parents=Array.isArray(ref.parent_columns)?ref.parent_columns:[];
+        if(handled.has(table) || !/^[a-z_][a-z0-9_]*$/.test(table) || !locals.length || locals.length!==parents.length)continue;
+        const clauses=[],vals=[];
+        for(let i=0;i<locals.length;i++){
+          const local=String(locals[i]),parent=String(parents[i]);
+          if(!/^[a-z_][a-z0-9_]*$/.test(local) || !/^[a-z_][a-z0-9_]*$/.test(parent))continue;
+          if(!(parent in x))continue;
+          vals.push(x[parent]);
+          clauses.push(`"${local}"=$${vals.length}`);
         }
+        if(clauses.length===locals.length)await client.query(`DELETE FROM "${table}" WHERE ${clauses.join(' AND ')}`,vals);
       }
       await client.query('DELETE FROM students WHERE id=$1',[id]);
     } else if(entity==='PAGO'){
