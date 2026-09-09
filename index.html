@@ -31,6 +31,13 @@
 .cred-list{margin:26px 34px 0;padding:0;list-style:none;font-size:14px;line-height:1.45}
 .cred-list li{margin:13px 0}.cred-loss{margin:22px 26px;background:linear-gradient(90deg,#9a6b16,#e0b94f,#9a6b16);color:#111;border-radius:12px;padding:12px 14px;text-align:center;font-weight:800}
 .cred-slogan{position:absolute;z-index:2;bottom:42px;left:25px;right:25px;text-align:center;color:#d4a84f;font-family:cursive;font-size:19px;line-height:1.15}
+.cred-editor{background:#fff;border:1px solid #e6d8bb;border-radius:14px;padding:14px;margin-bottom:16px}
+.cred-editor-title{font-weight:800;margin-bottom:10px}
+.cred-editor-grid{display:grid;grid-template-columns:repeat(2,minmax(180px,1fr));gap:10px}
+.cred-editor-grid label{font-size:12px;font-weight:700;color:#6a4b00}
+.cred-editor-grid input{display:block;width:100%;box-sizing:border-box;margin-top:5px;padding:9px;border:1px solid #d8c7a2;border-radius:9px;font-size:14px}
+.cred-editor-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
+@media(max-width:650px){.cred-editor-grid{grid-template-columns:1fr}}
 @media print{
  body *{visibility:hidden!important}
  #modal, #modal *{visibility:visible!important}
@@ -248,15 +255,31 @@ function credentialMarkup(p,type){
   const role=type==='student'?'ALUMNO':'MAESTRO';
   const discipline=p.discipline||p.plan||'Danza';
   const date=p.enrollment_date||p.created_at||'';
-  const qrText='EMPODERARTE|'+role+'|'+(p.matricula||p.id);
   const logo=appConfig.logo_data||appConfig.logo_url||'/logo-empoderarte.jpg';
-  return `<div class="cred-print-wrap">
+  const safeName=esc((p.name||'')+' '+(p.last_name||''));
+  const safeMat=esc(p.matricula||'—');
+  const safeDate=esc(fmtDate(date));
+  const safeDisc=esc(discipline);
+  return `<div class="cred-editor">
+    <div class="cred-editor-title">✏️ Editar credencial antes de descargar</div>
+    <div class="cred-editor-grid">
+      <label>Nombre completo<input id="credEditName" value="${safeName}" oninput="updateCredentialPreview()"></label>
+      <label>Matrícula<input id="credEditMat" value="${safeMat}" oninput="updateCredentialPreview()"></label>
+      <label>Fecha de ingreso<input id="credEditDate" value="${safeDate}" oninput="updateCredentialPreview()"></label>
+      <label>Disciplina<input id="credEditDisc" value="${safeDisc}" oninput="updateCredentialPreview()"></label>
+    </div>
+    <div class="cred-editor-actions">
+      <button class="btn" onclick="downloadCredentialEditable()">⬇️ Descargar editable</button>
+      <button class="btn primary" onclick="window.print()">🖨 Imprimir / Guardar PDF</button>
+    </div>
+  </div>
+  <div class="cred-print-wrap" id="credentialPreview">
     <div class="cred-card cred-front">
       <div class="cred-top"><img class="cred-logo" src="${esc(logo)}"><div class="cred-brand">Empoder<span>Arte</span></div><div class="cred-sub">Escuela de Danza</div></div>
       ${credentialPhoto(p,type)}
-      <div class="cred-name">${esc((p.name||'')+' '+(p.last_name||''))}</div>
+      <div class="cred-name" id="credPreviewName">${safeName}</div>
       <div class="cred-role">${role}</div>
-      <div class="cred-data"><b>Matrícula</b><strong>${esc(p.matricula||'—')}</strong><b>Fecha de ingreso</b><strong>${fmtDate(date)}</strong><b>Disciplina</b><strong>${esc(discipline)}</strong></div>
+      <div class="cred-data"><b>Matrícula</b><strong id="credPreviewMat">${safeMat}</strong><b>Fecha de ingreso</b><strong id="credPreviewDate">${safeDate}</strong><b>Disciplina</b><strong id="credPreviewDisc">${safeDisc}</strong></div>
       <div id="credqr" class="cred-qr"></div>
       <div class="cred-footer">EMPODERARTE</div>
     </div>
@@ -269,9 +292,34 @@ function credentialMarkup(p,type){
       <div class="cred-slogan">El arte de formar<br>mejores personas ♡</div>
       <div class="cred-footer">EMPODERARTE</div>
     </div>
-    <div style="width:100%;text-align:center"><button class="btn primary" onclick="window.print()">🖨 Imprimir credencial</button></div>
   </div>`;
 }
+function updateCredentialPreview(){
+  const get=id=>$(id)?.value||'';
+  if($('credPreviewName'))$('credPreviewName').textContent=get('credEditName');
+  if($('credPreviewMat'))$('credPreviewMat').textContent=get('credEditMat');
+  if($('credPreviewDate'))$('credPreviewDate').textContent=get('credEditDate');
+  if($('credPreviewDisc'))$('credPreviewDisc').textContent=get('credEditDisc');
+}
+function downloadCredentialEditable(){
+  const name=$('credEditName')?.value||'', mat=$('credEditMat')?.value||'', date=$('credEditDate')?.value||'', disc=$('credEditDisc')?.value||'';
+  const preview=$('credentialPreview');
+  if(!preview){toast('No hay credencial para descargar');return}
+  const clone=preview.cloneNode(true);
+  const qr=clone.querySelector('#credqr'); if(qr) qr.innerHTML='';
+  const html=`<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Credencial EmpoderArte - ${name}</title>
+  <style>${document.querySelector('style')?.textContent||''}.cred-card{margin:10px}.cred-print-wrap{display:flex;gap:18px;flex-wrap:wrap}.edit-note{font-family:Arial;padding:10px;background:#fff7df;border:1px solid #d4a84f;margin-bottom:15px}.editable{outline:1px dashed #b88722;min-width:100px}</style></head>
+  <body><div class="edit-note">Credencial editable de EmpoderArte. Puedes modificar nombre, matrícula, fecha y disciplina directamente en este archivo y después imprimirlo.</div>
+  ${clone.outerHTML}
+  <script>document.querySelectorAll('.cred-name,.cred-data strong').forEach(e=>e.contentEditable='true');<\/script>
+  </body></html>`;
+  const blob=new Blob([html],{type:'text/html;charset=utf-8'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download='Credencial_EmpoderArte_'+(name||'persona').replace(/\s+/g,'_')+'.html';
+  document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+  toast('Credencial editable descargada');
+}
+
 async function credentialFor(type,id){
   const p=await api(type==='student'?'/api/students/'+id:'/api/teachers/'+id);
   modal('Credencial · '+esc(type==='student'?'Alumno':'Maestro'),credentialMarkup(p,type),'Cerrar',closeModal);
