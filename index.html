@@ -7,7 +7,7 @@
 <style>
  .cred-print-wrap{display:flex;gap:18px;justify-content:center;align-items:flex-start;flex-wrap:wrap;background:#f1f1f1;padding:18px;border-radius:18px}
 .role-reception button.btn.danger[onclick*="removeRecord"]{display:none!important}
-.cred-exact{--cw:56mm;--ch:85mm;position:relative;width:var(--cw);height:var(--ch);aspect-ratio:1024/1536;overflow:hidden;border-radius:3mm;box-shadow:0 10px 28px rgba(0,0,0,.18);background:#fff;flex:0 0 auto}
+.cred-exact{--cw:56mm;--ch:85mm;position:relative;width:var(--cw);height:var(--ch);aspect-ratio:640/970;overflow:hidden;border-radius:3mm;box-shadow:0 10px 28px rgba(0,0,0,.18);background:#fff;flex:0 0 auto}
 .cred-exact img.cred-bg{position:absolute;inset:0;width:100%;height:100%;object-fit:fill;display:block}
 .cred-overlay{position:absolute;inset:0;font-family:Arial,Helvetica,sans-serif}
 .cred-photo-exact{position:absolute;left:31.875%;top:24.64%;width:37.03%;height:22.58%;object-fit:cover;border-radius:2.2mm;border:0}
@@ -23,7 +23,7 @@
 .cred-edit-grid label{font-size:12px;font-weight:700;color:#6a4b00}.cred-edit-grid input{display:block;width:100%;box-sizing:border-box;margin-top:5px;padding:9px;border:1px solid #d8c7a2;border-radius:9px;font-size:14px}
 .cred-edit-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
 .cred-size-row{display:flex;gap:10px;align-items:end;flex-wrap:wrap;margin-top:10px}.cred-size-row label{min-width:130px}.cred-size-row input{width:110px}
-@media(max-width:850px){.cred-exact{width:min(56mm,94vw);height:auto;aspect-ratio:1024/1536}.cred-edit-grid{grid-template-columns:1fr}}
+@media(max-width:850px){.cred-exact{width:min(56mm,94vw);height:auto;aspect-ratio:640/970}.cred-edit-grid{grid-template-columns:1fr}}
 @media print{body *{visibility:hidden!important}@page{size:Letter landscape;margin:0}.cred-print-wrap,.cred-print-wrap *{visibility:visible!important}.cred-print-wrap{position:absolute;left:0;top:0;width:100vw;height:100vh;background:#fff!important;padding:0!important;gap:8mm!important;align-items:center;justify-content:center;flex-wrap:nowrap}.cred-exact{box-shadow:none!important;break-inside:avoid;page-break-inside:avoid}}
 </style>
 </style>
@@ -138,7 +138,7 @@
 
 <style id="biometric-style">.bio-btn{background:#f5f0ff;color:#4e2f7d;border:1px solid #d8c8ee}.bio-note{padding:12px;border-radius:10px;background:#f7f3fb;border:1px solid #e4d8ef}.bio-badge{display:inline-block;padding:4px 8px;border-radius:999px;background:#e8f7ed;color:#27844b;font-size:12px;font-weight:800}</style>
 <style id="credential-final-fix">
-.cred-exact{--cw:56mm;--ch:85mm;position:relative;width:var(--cw);height:var(--ch);aspect-ratio:1024/1536;overflow:hidden;border-radius:3mm;background:#fff;box-shadow:0 10px 28px rgba(0,0,0,.18);flex:0 0 auto}
+.cred-exact{--cw:56mm;--ch:85mm;position:relative;width:var(--cw);height:var(--ch);aspect-ratio:640/970;overflow:hidden;border-radius:3mm;background:#fff;box-shadow:0 10px 28px rgba(0,0,0,.18);flex:0 0 auto}
 .cred-exact img.cred-bg{position:absolute;inset:0;width:100%;height:100%;object-fit:fill;display:block}
 .cred-overlay{position:absolute;inset:0;font-family:Arial,Helvetica,sans-serif}
 .cred-photo-exact{position:absolute;left:31.875%;top:24.64%;width:37.03%;height:22.58%;object-fit:cover;border-radius:2.2mm;border:0;z-index:3}
@@ -254,7 +254,7 @@ function credentialMarkup(p,type){
   const safeDisc=esc(discipline);
   const photo=credentialPhoto(p,type);
   return `<div class="cred-edit-bar">
-    <b>🪪 Credencial EmpoderArte — plantilla editable oficial</b>
+    <b>🪪 Credencial EmpoderArte — plantilla editable</b>
     <div class="cred-edit-grid" style="margin-top:10px">
       <label>Nombre completo<input id="credEditName" value="${safeName}" oninput="updateCredentialPreview()"></label>
       <label>Matrícula<input id="credEditMat" value="${safeMat}" oninput="updateCredentialPreview()"></label>
@@ -264,7 +264,7 @@ function credentialMarkup(p,type){
     <div class="cred-size-row">
       <label>Ancho (mm)<input id="credSizeW" type="number" min="40" max="100" step="1" value="56" oninput="updateCredentialSize()"></label>
       <label>Alto (mm)<input id="credSizeH" type="number" min="60" max="140" step="1" value="85" oninput="updateCredentialSize()"></label>
-      <span class="small muted">Tamaño inicial: 56 × 85 mm. Puedes cambiarlo y los datos se actualizan en tiempo real.</span>
+      <span class="small muted">Tamaño inicial: 56 × 85 mm. Puedes cambiarlo.</span>
     </div>
     <div class="cred-edit-actions">
       <button class="btn gold" onclick="downloadCredentialPNG()">⬇️ Descargar frente + reverso</button>
@@ -279,9 +279,9 @@ function credentialMarkup(p,type){
         <div class="cred-name-exact" id="credPreviewName">${safeName}</div>
         <div class="cred-role-exact"><span id="credPreviewRole">${role}</span></div>
         <div class="cred-data-exact">
-          <span class="lbl">Matrícula:</span><span class="val" id="credPreviewMat">${safeMat}</span>
-          <span class="lbl">Fecha de ingreso:</span><span class="val" id="credPreviewDate">${safeDate}</span>
-          <span class="lbl">Disciplina:</span><span class="val" id="credPreviewDisc">${safeDisc}</span>
+          <span class="data-line"><span class="lbl">Matrícula:</span><span class="val" id="credPreviewMat">${safeMat}</span></span>
+          <span class="data-line"><span class="lbl">Fecha de ingreso:</span><span class="val" id="credPreviewDate">${safeDate}</span></span>
+          <span class="data-line"><span class="lbl">Disciplina:</span><span class="val" id="credPreviewDisc">${safeDisc}</span></span>
         </div>
         <div id="credqr" class="cred-qr-exact"></div>
       </div>
@@ -313,12 +313,26 @@ async function credentialCanvasData(){
   const type=$('credtype')?.value||'student',role=type==='student'?'ALUMNO':'MAESTRO';
   const load=src=>new Promise((resolve,reject)=>{const im=new Image();im.onload=()=>resolve(im);im.onerror=()=>reject(new Error('No se pudo cargar '+src));im.src=src});
   const [front,back,qr]=await Promise.all([load('/credential-front.jpg'),load('/credential-back.jpg'),load('/api/credential-qr?text='+encodeURIComponent('EMPODERARTE|'+role+'|'+mat))]);
-  const cw=1024,ch=1536,gap=60; const canvas=document.createElement('canvas');canvas.width=cw*2+gap;canvas.height=ch;const ctx=canvas.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,canvas.width,canvas.height);
+  const cw=1024,ch=1536,gap=50;
+  const canvas=document.createElement('canvas');canvas.width=cw*2+gap;canvas.height=ch;const ctx=canvas.getContext('2d');
+  ctx.fillStyle='#fff';ctx.fillRect(0,0,canvas.width,canvas.height);
   ctx.drawImage(front,0,0,cw,ch);ctx.drawImage(back,cw+gap,0,cw,ch);
-  ctx.save();ctx.beginPath();ctx.roundRect(319,397,386,359,24);ctx.clip();if(window.__credentialPhotoData){const ph=await load(window.__credentialPhotoData);ctx.drawImage(ph,319,397,386,359)}else{ctx.fillStyle='#f4f2ed';ctx.fillRect(319,397,386,359)}ctx.restore();
-  ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle='#111';let fs=30;ctx.font=`700 ${fs}px Arial,sans-serif`;while(fs>18&&ctx.measureText(name.toUpperCase()).width>790){fs--;ctx.font=`700 ${fs}px Arial,sans-serif`;}ctx.fillText(name.toUpperCase(),512,872);
-  ctx.fillStyle='rgba(0,0,0,.98)';ctx.beginPath();ctx.roundRect(205,776,614,82,40);ctx.fill();ctx.fillStyle='#fff';ctx.font='700 34px Arial,sans-serif';ctx.fillText(role,512,817);
-  ctx.textAlign='left';ctx.fillStyle='#111';ctx.font='700 26px Arial,sans-serif';ctx.fillText(mat,205,957);ctx.fillText(date,205,1055);ctx.fillText(disc,205,1152);ctx.drawImage(qr,90,1180,238,238);return {canvas,name};
+  // Clean template already contains labels and design. Only dynamic fields are drawn here.
+  if(window.__credentialPhotoData){const ph=await load(window.__credentialPhotoData);ctx.save();ctx.beginPath();ctx.roundRect(319,395,386,365,30);ctx.clip();ctx.drawImage(ph,319,395,386,365);ctx.restore();}
+  // Name area between photo and role bar.
+  ctx.fillStyle='rgba(255,255,255,.96)';ctx.fillRect(145,748,735,42);
+  ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle='#111';ctx.font='700 42px Georgia,serif';
+  let fs=42;while(fs>22&&ctx.measureText(name.toUpperCase()).width>700){fs--;ctx.font=`700 ${fs}px Georgia,serif`;}ctx.fillText(name.toUpperCase(),512,770);
+  // Dynamic role over the printed role word.
+  ctx.fillStyle='#080808';ctx.fillRect(205,780,614,78);
+  ctx.strokeStyle='#c9962e';ctx.lineWidth=8;ctx.strokeRect(209,784,606,70);
+  ctx.fillStyle='#fff';ctx.font='700 38px Arial,sans-serif';ctx.letterSpacing='10px';ctx.fillText(role,512,819);ctx.letterSpacing='0px';
+  // Values to the right of the printed labels.
+  ctx.textAlign='left';ctx.fillStyle='#111';ctx.font='700 28px Arial,sans-serif';
+  ctx.fillText(mat,515,921);ctx.fillText(date,515,1017);ctx.fillText(disc,515,1110);
+  // QR in the lower-left gold frame.
+  ctx.drawImage(qr,93,1180,235,211);
+  return {canvas,name};
 }
 async function downloadCredentialPNG(){
   try{const {canvas,name}=await credentialCanvasData();const a=document.createElement('a');a.download='Credencial_EmpoderArte_'+name.trim().replace(/\s+/g,'_')+'.png';a.href=canvas.toDataURL('image/png');document.body.appendChild(a);a.click();a.remove();toast('Credencial descargada correctamente');}
@@ -330,7 +344,7 @@ function printCredential(){
   if(!win){alert('Chrome bloqueó la ventana de impresión. Permite ventanas emergentes para EmpoderArte.');return}
   const w=Math.max(40,Math.min(100,Number($('credSizeW')?.value||56))),h=Math.max(60,Math.min(140,Number($('credSizeH')?.value||85)));
   const front=wrap.querySelector('#credentialFrontExact'),back=wrap.querySelector('#credentialBackExact');
-  const html=`<!doctype html><html><head><meta charset="utf-8"><title>Credencial EmpoderArte</title><style>@page{size:Letter landscape;margin:0}html,body{margin:0;padding:0;width:100%;height:100%;background:#fff}body{display:flex;align-items:center;justify-content:center}.sheet{display:flex;gap:8mm;align-items:center;justify-content:center;width:100%;height:100%;box-sizing:border-box}.cred-exact{position:relative;width:${w}mm;height:${h}mm;overflow:hidden;border-radius:3mm;background:#fff;flex:0 0 auto}.cred-bg{position:absolute;inset:0;width:100%;height:100%;object-fit:fill;display:block}.cred-overlay{position:absolute;inset:0;font-family:Arial,Helvetica,sans-serif}.cred-photo-exact{position:absolute;left:31.15%;top:25.85%;width:37.70%;height:23.37%;object-fit:cover;border-radius:2.2mm}.cred-name-exact{position:absolute;left:8%;top:55.8%;width:84%;height:4.2%;display:flex;align-items:center;justify-content:center;color:#111;font-size:2.8mm;font-weight:700;text-transform:uppercase;line-height:1;white-space:nowrap;overflow:hidden}.cred-role-exact{position:absolute;left:20.02%;top:50.52%;width:59.96%;height:5.34%;display:flex;align-items:center;justify-content:center;background:#050505;color:#fff;border:.45mm solid #c99a32;border-radius:28px;letter-spacing:.7mm;font-size:3mm;font-weight:700}.cred-data-exact{position:absolute;left:19.73%;top:58.7%;width:65%;height:19%;color:#111;background:transparent;line-height:1.08}.cred-data-exact .lbl{display:block;font-size:1.75mm;margin-top:0}.cred-data-exact .val{display:block;font-size:2.35mm;font-weight:700;margin-bottom:1.2mm;background:transparent;width:100%;white-space:nowrap;overflow:hidden}.cred-qr-exact{position:absolute;left:8.8%;top:76.8%;width:23.2%;height:15.5%;display:flex;align-items:center;justify-content:center;overflow:hidden;background:#fff;border:0}.cred-qr-exact img{width:100%;height:100%;object-fit:contain}.cred-name-exact,.cred-role-exact,.cred-data-exact,.cred-qr-exact,.cred-photo-exact{z-index:2}</style></head><body><div class="sheet">${front.outerHTML}${back.outerHTML}</div><script>window.onload=()=>setTimeout(()=>window.print(),500)<\/script></body></html>`;
+  const html=`<!doctype html><html><head><meta charset="utf-8"><title>Credencial EmpoderArte</title><style>@page{size:Letter landscape;margin:0}html,body{margin:0;padding:0;width:100%;height:100%;background:#fff}body{display:flex;align-items:center;justify-content:center}.sheet{display:flex;gap:8mm;align-items:center;justify-content:center;width:100%;height:100%;box-sizing:border-box}.cred-exact{position:relative;width:${w}mm;height:${h}mm;overflow:hidden;border-radius:3mm;background:#fff;flex:0 0 auto}.cred-bg{position:absolute;inset:0;width:100%;height:100%;object-fit:fill;display:block}.cred-overlay{position:absolute;inset:0;font-family:Arial,Helvetica,sans-serif}.cred-photo-exact{position:absolute;left:31.15%;top:25.72%;width:37.70%;height:23.76%;object-fit:cover;border-radius:3mm}.cred-name-exact{position:absolute;left:14.16%;top:48.70%;width:71.68%;height:2.74%;display:flex;align-items:center;justify-content:center;color:#111;font-family:Georgia,serif;font-size:3mm;font-weight:700;text-transform:uppercase;line-height:1;white-space:nowrap;overflow:hidden}.cred-role-exact{position:absolute;left:20.02%;top:50.78%;width:59.96%;height:5.08%;display:flex;align-items:center;justify-content:center;background:#080808;color:#fff;border:.45mm solid #c9962e;border-radius:28px;letter-spacing:.7mm;font-size:3mm;font-weight:700}.cred-data-exact{position:absolute;left:50.29%;top:59.31%;width:42%;height:14%;color:#111;line-height:1.08}.data-line{display:block;height:6.25%;margin-bottom:3.95mm}.data-line .lbl{display:none}.data-line .val{display:block;font-size:2.35mm;font-weight:700;white-space:nowrap;overflow:hidden}.cred-qr-exact{position:absolute;left:9.08%;top:76.82%;width:22.95%;height:13.74%;display:flex;align-items:center;justify-content:center;overflow:hidden;background:transparent}.cred-qr-exact img{width:100%;height:100%;object-fit:contain}</style></head><body><div class="sheet">${front.outerHTML}${back.outerHTML}</div><script>window.onload=()=>setTimeout(()=>window.print(),500)<\/script></body></html>`;
   win.document.open();win.document.write(html);win.document.close();
 }
 async function credentialFor(type,id){
