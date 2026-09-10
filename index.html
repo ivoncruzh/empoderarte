@@ -137,7 +137,21 @@
 </style>
 
 <style id="biometric-style">.bio-btn{background:#f5f0ff;color:#4e2f7d;border:1px solid #d8c8ee}.bio-note{padding:12px;border-radius:10px;background:#f7f3fb;border:1px solid #e4d8ef}.bio-badge{display:inline-block;padding:4px 8px;border-radius:999px;background:#e8f7ed;color:#27844b;font-size:12px;font-weight:800}</style>
-</head><body>
+<style id="credential-final-fix">
+.cred-exact{--cw:56mm;--ch:85mm;position:relative;width:var(--cw);height:var(--ch);aspect-ratio:640/970;overflow:hidden;border-radius:3mm;background:#fff;box-shadow:0 10px 28px rgba(0,0,0,.18);flex:0 0 auto}
+.cred-exact img.cred-bg{position:absolute;inset:0;width:100%;height:100%;object-fit:fill;display:block}
+.cred-overlay{position:absolute;inset:0;font-family:Arial,Helvetica,sans-serif}
+.cred-photo-exact{position:absolute;left:31.875%;top:24.64%;width:37.03%;height:22.58%;object-fit:cover;border-radius:2.2mm;border:0;z-index:3}
+.cred-name-mask{position:absolute;left:14.375%;top:47.99%;width:71.25%;height:5.15%;background:rgba(255,255,255,.97);border-radius:1.5mm;z-index:1}
+.cred-name-exact{position:absolute;left:14.84%;top:48.76%;width:70.31%;height:4.33%;display:flex;align-items:center;justify-content:center;color:#111;font-family:Georgia,serif;font-size:3mm;font-weight:700;text-transform:uppercase;line-height:1;white-space:nowrap;overflow:hidden;z-index:2}
+.cred-role-exact{position:absolute;left:26.56%;top:53.30%;width:46.88%;height:4.85%;display:flex;align-items:center;justify-content:center;background:#050505;color:#fff;border:.45mm solid #c99a32;border-radius:28px;letter-spacing:.7mm;font-size:3mm;font-weight:700;z-index:3}
+.cred-data-exact{position:absolute;left:19.69%;top:58.56%;width:44.53%;height:18.04%;color:#111;background:transparent;line-height:1.08;z-index:3}
+.cred-data-exact .lbl{display:block;font-size:1.75mm;margin-top:0;color:#111}
+.cred-data-exact .val{display:block;font-size:2.35mm;font-weight:700;margin-bottom:1.2mm;background:rgba(255,255,255,.97);width:100%;white-space:nowrap;overflow:hidden;color:#111}
+.cred-qr-exact{position:absolute;left:9.53%;top:78.04%;width:25.78%;height:13.61%;display:flex;align-items:center;justify-content:center;overflow:hidden;background:#fff;z-index:3}
+.cred-qr-exact img{width:100%;height:100%;display:block;object-fit:contain}
+@media print{body *{visibility:hidden!important}.cred-print-wrap,.cred-print-wrap *{visibility:visible!important}.cred-print-wrap{position:absolute;left:0;top:0;width:100%;height:100%;background:#fff!important;padding:0!important;gap:8mm!important;align-items:center;justify-content:center;flex-wrap:nowrap}.cred-exact{box-shadow:none!important;break-inside:avoid;page-break-inside:avoid}}
+</style></head><body>
 <section id="login" class="modal" style="background:linear-gradient(135deg,#f7efff,#fff9ef)"><div class="modalbox" style="width:min(430px,95vw);text-align:center"><img id="loginLogo" class="login-logo" src="/logo-empoderarte.jpg" alt="EmpoderArte"><div id="loginSchoolName" style="font-size:34px;font-weight:900;color:var(--p)">EmpoderArte</div><p id="loginSubtitle" class="muted">Sistema Integral de Gestión · Escuela de Danza</p><label style="text-align:left">Correo</label><input id="email" value="director@empoderarte.local"><label style="text-align:left">Contraseña</label><input id="password" type="password" value="empoderarte"><button id="loginBtn" type="button" class="btn primary" style="width:100%;margin-top:15px;pointer-events:auto;position:relative;z-index:2">🚀 Entrar al sistema</button><p class="small muted">Versión integral · datos en PostgreSQL</p></div></section>
 <section id="app" class="app hidden"><aside class="side"><div class="brand"><img id="brandLogo" class="brand-logo" src="/logo-empoderarte.jpg" alt="EmpoderArte"><div id="brandText">EmpoderArte<small>Escuela de Danza</small></div></div>
 <button class="nav active" data-v="dashboard">🏠 Dashboard</button><button class="nav" data-v="students">👩‍🎓 Alumnos</button><button class="nav" data-v="attendanceAlumnos">✓ Asistencia alumnos</button><button class="nav" data-v="teachers">👩‍🏫 Maestros</button><button class="nav" data-v="personal">👥 Personal</button><button class="nav director-only" data-v="payroll">💰 Nómina</button><button class="nav" data-v="reception">▣ Recepción</button><button class="nav" data-v="monthly">◷ Mensualidades</button><button class="nav" data-v="lockers">▣ Lockers</button><button class="nav" data-v="payments">$ Pagos</button><button class="nav" data-v="promotions">✦ Promociones</button><button class="nav" data-v="benefits">★ Beneficios</button><button class="nav" data-v="credential">▤ Credenciales QR</button><button class="nav" data-v="reports">▥ Reportes</button><button class="nav" data-v="alerts">🔔 Vencimientos</button><button class="nav director-only" data-v="users">♟ Usuarios</button><button class="nav director-only" data-v="audit">☷ Bitácora</button><button class="nav director-only" data-v="trash">⌫ Papelera</button><button class="nav director-only" data-v="settings">⚙ Configuración</button>
@@ -250,7 +264,7 @@ function credentialMarkup(p,type){
     <div class="cred-size-row">
       <label>Ancho (mm)<input id="credSizeW" type="number" min="40" max="100" step="1" value="56" oninput="updateCredentialSize()"></label>
       <label>Alto (mm)<input id="credSizeH" type="number" min="60" max="140" step="1" value="85" oninput="updateCredentialSize()"></label>
-      <span class="small muted">Tamaño estándar inicial: 56 × 85 mm. Puedes cambiarlo.</span>
+      <span class="small muted">Tamaño inicial: 56 × 85 mm. Puedes cambiarlo.</span>
     </div>
     <div class="cred-edit-actions">
       <button class="btn gold" onclick="downloadCredentialPNG()">⬇️ Descargar frente + reverso</button>
@@ -262,8 +276,9 @@ function credentialMarkup(p,type){
       <img class="cred-bg" src="/credential-front.jpg" alt="Credencial frente">
       <div class="cred-overlay">
         ${photo}
+        <div class="cred-name-mask"></div>
         <div class="cred-name-exact" id="credPreviewName">${safeName}</div>
-        <div class="cred-role-exact">${role}</div>
+        <div class="cred-role-exact"><span id="credPreviewRole">${role}</span></div>
         <div class="cred-data-exact">
           <span class="lbl">Matrícula:</span><span class="val" id="credPreviewMat">${safeMat}</span>
           <span class="lbl">Fecha de ingreso:</span><span class="val" id="credPreviewDate">${safeDate}</span>
@@ -281,7 +296,10 @@ function updateCredentialSize(){
   const h=Math.max(60,Math.min(140,Number($('credSizeH')?.value||85)));
   document.querySelectorAll('.cred-exact').forEach(el=>{el.style.setProperty('--cw',w+'mm');el.style.setProperty('--ch',h+'mm');});
   const name=$('credPreviewName');
-  if(name){const len=(name.textContent||'').length;name.style.fontSize=(len>30?'20px':len>25?'23px':len>21?'26px':'31px');}
+  if(name){
+    const len=(name.textContent||'').trim().length;
+    name.style.fontSize=(len>34?'2.35mm':len>28?'2.55mm':len>22?'2.8mm':'3.05mm');
+  }
 }
 function updateCredentialPreview(){
   const get=id=>$(id)?.value||'';
@@ -289,34 +307,48 @@ function updateCredentialPreview(){
   if($('credPreviewMat'))$('credPreviewMat').textContent=get('credEditMat');
   if($('credPreviewDate'))$('credPreviewDate').textContent=get('credEditDate');
   if($('credPreviewDisc'))$('credPreviewDisc').textContent=get('credEditDisc');
+  updateCredentialSize();
 }
-async function downloadCredentialPNG(){
+async function credentialCanvasData(){
   const name=$('credEditName')?.value||'persona',mat=$('credEditMat')?.value||'',date=$('credEditDate')?.value||'',disc=$('credEditDisc')?.value||'';
   const type=$('credtype')?.value||'student',role=type==='student'?'ALUMNO':'MAESTRO';
-  const load=src=>new Promise((resolve,reject)=>{const im=new Image();im.crossOrigin='anonymous';im.onload=()=>resolve(im);im.onerror=()=>reject(new Error('No se pudo cargar '+src));im.src=src});
-  try{
-    const [front,back]=await Promise.all([load('/credential-front.jpg'),load('/credential-back.jpg')]);
-    const canvas=document.createElement('canvas');canvas.width=1600;canvas.height=1100;const ctx=canvas.getContext('2d');
-    ctx.fillStyle='#fff';ctx.fillRect(0,0,canvas.width,canvas.height);
-    const cardW=700,cardH=Math.round(cardW*970/640),gap=100,scale=cardW/640;
-    const y=Math.round((canvas.height-cardH)/2),x1=60,x2=x1+cardW+gap;
-    ctx.drawImage(front,x1,y,cardW,cardH);ctx.drawImage(back,x2,y,cardW,cardH);
-    ctx.save();ctx.translate(x1,y);ctx.scale(scale,scale);
-    if(window.__credentialPhotoData){const ph=await load(window.__credentialPhotoData);ctx.save();ctx.beginPath();ctx.roundRect(204,239,237,219,18);ctx.clip();ctx.drawImage(ph,204,239,237,219);ctx.restore();}
-    ctx.fillStyle='#111';ctx.textAlign='center';ctx.textBaseline='middle';ctx.font='700 31px Georgia';
-    const maxName=430;let fs=31;while(fs>18&&ctx.measureText(name.toUpperCase()).width>maxName){fs--;ctx.font=`700 ${fs}px Georgia`;}ctx.fillText(name.toUpperCase(),320,494,maxName);
-    ctx.textAlign='left';ctx.font='19px Arial';ctx.fillText('Matrícula:',126,588);ctx.font='700 25px Arial';ctx.fillText(mat,126,617);ctx.font='19px Arial';ctx.fillText('Fecha de ingreso:',126,654);ctx.font='700 25px Arial';ctx.fillText(date,126,683);ctx.font='19px Arial';ctx.fillText('Disciplina:',126,720);ctx.font='700 25px Arial';ctx.fillText(disc,126,749);
-    const qr=await load('/api/credential-qr?text='+encodeURIComponent('EMPODERARTE|'+role+'|'+mat));ctx.drawImage(qr,61,757,165,132);ctx.restore();
-    const a=document.createElement('a');a.download='Credencial_EmpoderArte_'+name.trim().replace(/\s+/g,'_')+'.png';a.href=canvas.toDataURL('image/png');document.body.appendChild(a);a.click();a.remove();toast('Credencial descargada correctamente');
-  }catch(e){console.error(e);alert('No se pudo descargar la credencial. Si el navegador pregunta por descargas, permite las descargas del sitio.');}
+  const load=src=>new Promise((resolve,reject)=>{const im=new Image();im.onload=()=>resolve(im);im.onerror=()=>reject(new Error('No se pudo cargar '+src));im.src=src});
+  const [front,back,qr]=await Promise.all([load('/credential-front.jpg'),load('/credential-back.jpg'),load('/api/credential-qr?text='+encodeURIComponent('EMPODERARTE|'+role+'|'+mat))]);
+  const cw=640,ch=970,gap=40;
+  const canvas=document.createElement('canvas');canvas.width=cw*2+gap;canvas.height=ch;const ctx=canvas.getContext('2d');
+  ctx.fillStyle='#fff';ctx.fillRect(0,0,canvas.width,canvas.height);
+  function card(img,x){ctx.drawImage(img,x,0,cw,ch)}
+  card(front,0);card(back,cw+gap);
+  // Mask the sample data printed in the template, preserving the surrounding design.
+  ctx.fillStyle='rgba(255,255,255,.97)';
+  ctx.fillRect(92,466,456,50);
+  ctx.fillStyle='#050505';ctx.fillRect(179,527,313,30);
+  ctx.fillStyle='rgba(255,255,255,.97)';
+  ctx.fillRect(120,604,270,31);ctx.fillRect(120,667,270,31);ctx.fillRect(120,726,270,31);
+  // Photo area: cover the sample photo, then place the real student photo when available.
+  ctx.fillStyle='#f6f4ef';ctx.fillRect(211,246,223,209);
+  if(window.__credentialPhotoData){const ph=await load(window.__credentialPhotoData);ctx.save();ctx.beginPath();ctx.roundRect(204,239,237,219,18);ctx.clip();ctx.drawImage(ph,204,239,237,219);ctx.restore();}
+  // QR area: white cover plus fresh QR.
+  ctx.fillStyle='#fff';ctx.fillRect(69,766,153,119);ctx.drawImage(qr,69,766,153,119);
+  ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle='#111';ctx.font='700 31px Georgia,serif';
+  let fs=31;while(fs>18&&ctx.measureText(name.toUpperCase()).width>430){fs--;ctx.font=`700 ${fs}px Georgia,serif`;}ctx.fillText(name.toUpperCase(),320,494);
+  ctx.fillStyle='#fff';ctx.font='700 25px Arial,sans-serif';ctx.fillText(role,335,542);
+  ctx.textAlign='left';ctx.fillStyle='#111';ctx.font='19px Arial,sans-serif';ctx.fillText('Matrícula:',126,588);ctx.fillText('Fecha de ingreso:',126,651);ctx.fillText('Disciplina:',126,714);
+  ctx.font='700 25px Arial,sans-serif';ctx.fillText(mat,126,619);ctx.fillText(date,126,682);ctx.fillText(disc,126,745);
+  return {canvas,name};
+}
+async function downloadCredentialPNG(){
+  try{const {canvas,name}=await credentialCanvasData();const a=document.createElement('a');a.download='Credencial_EmpoderArte_'+name.trim().replace(/\s+/g,'_')+'.png';a.href=canvas.toDataURL('image/png');document.body.appendChild(a);a.click();a.remove();toast('Credencial descargada correctamente');}
+  catch(e){console.error(e);alert('No se pudo descargar la credencial. Intenta nuevamente y permite las descargas de este sitio.');}
 }
 function printCredential(){
   const wrap=$('credentialPreview');if(!wrap){alert('Selecciona primero una persona.');return}
   const win=window.open('','_blank','width=1200,height=800');
   if(!win){alert('Chrome bloqueó la ventana de impresión. Permite ventanas emergentes para EmpoderArte.');return}
   const w=Math.max(40,Math.min(100,Number($('credSizeW')?.value||56))),h=Math.max(60,Math.min(140,Number($('credSizeH')?.value||85)));
-  win.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Credencial EmpoderArte</title><style>@page{size:Letter landscape;margin:0}html,body{margin:0;width:100%;height:100%;background:#fff}body{display:flex;align-items:center;justify-content:center}.sheet{display:flex;gap:8mm;align-items:center;justify-content:center;width:100vw;height:100vh}.cred-exact{--cw:${w}mm;--ch:${h}mm;position:relative;width:var(--cw);height:var(--ch);overflow:hidden;border-radius:3mm;background:#fff;flex:0 0 auto}.cred-bg{position:absolute;inset:0;width:100%;height:100%;object-fit:fill;display:block}.cred-overlay{position:absolute;inset:0;font-family:Arial,Helvetica,sans-serif}.cred-photo-exact{position:absolute;left:31.875%;top:24.64%;width:37.03%;height:22.58%;object-fit:cover;border-radius:2.2mm}.cred-name-exact{position:absolute;left:14.84%;top:48.76%;width:70.31%;height:4.33%;display:flex;align-items:center;justify-content:center;color:#111;font-family:Georgia,serif;font-weight:700;text-transform:uppercase;line-height:1;white-space:nowrap;overflow:hidden}.cred-role-exact{position:absolute;left:26.56%;top:53.30%;width:46.88%;height:4.85%;display:flex;align-items:center;justify-content:center;background:#050505;color:#fff;border:.45mm solid #c99a32;border-radius:28px;letter-spacing:.9mm;font-weight:700}.cred-data-exact{position:absolute;left:19.69%;top:58.56%;width:44.53%;height:18.04%;color:#111;background:transparent;line-height:1.08}.cred-data-exact .lbl{display:block;font-size:19px}.cred-data-exact .val{display:block;font-size:25px;font-weight:700;margin-bottom:1.5mm}.cred-qr-exact{position:absolute;left:9.53%;top:78.04%;width:25.78%;height:13.61%;display:flex;align-items:center;justify-content:center;overflow:hidden}.cred-qr-exact img{width:100%;height:100%;object-fit:contain}</style></head><body><div class="sheet">${wrap.innerHTML}</div><script>window.onload=()=>setTimeout(()=>window.print(),400)<\/script></body></html>`);
-  win.document.close();
+  const front=wrap.querySelector('#credentialFrontExact'),back=wrap.querySelector('#credentialBackExact');
+  const html=`<!doctype html><html><head><meta charset="utf-8"><title>Credencial EmpoderArte</title><style>@page{size:Letter landscape;margin:0}html,body{margin:0;padding:0;width:100%;height:100%;background:#fff}body{display:flex;align-items:center;justify-content:center}.sheet{display:flex;gap:8mm;align-items:center;justify-content:center;width:100%;height:100%;box-sizing:border-box}.cred-exact{position:relative;width:${w}mm;height:${h}mm;overflow:hidden;border-radius:3mm;background:#fff;flex:0 0 auto}.cred-bg{position:absolute;inset:0;width:100%;height:100%;object-fit:fill;display:block}.cred-overlay{position:absolute;inset:0;font-family:Arial,Helvetica,sans-serif}.cred-photo-exact{position:absolute;left:31.875%;top:24.64%;width:37.03%;height:22.58%;object-fit:cover;border-radius:2.2mm}.cred-name-mask{position:absolute;left:14.375%;top:47.99%;width:71.25%;height:5.15%;background:rgba(255,255,255,.97);border-radius:1.5mm}.cred-name-exact{position:absolute;left:14.84%;top:48.76%;width:70.31%;height:4.33%;display:flex;align-items:center;justify-content:center;color:#111;font-family:Georgia,serif;font-size:3mm;font-weight:700;text-transform:uppercase;line-height:1;white-space:nowrap;overflow:hidden}.cred-role-exact{position:absolute;left:26.56%;top:53.30%;width:46.88%;height:4.85%;display:flex;align-items:center;justify-content:center;background:#050505;color:#fff;border:.45mm solid #c99a32;border-radius:28px;letter-spacing:.7mm;font-size:3mm;font-weight:700}.cred-data-exact{position:absolute;left:19.69%;top:58.56%;width:44.53%;height:18.04%;color:#111;background:transparent;line-height:1.08}.cred-data-exact .lbl{display:block;font-size:1.75mm;margin-top:0}.cred-data-exact .val{display:block;font-size:2.35mm;font-weight:700;margin-bottom:1.2mm;background:rgba(255,255,255,.97);width:100%;white-space:nowrap;overflow:hidden}.cred-qr-exact{position:absolute;left:9.53%;top:78.04%;width:25.78%;height:13.61%;display:flex;align-items:center;justify-content:center;overflow:hidden;background:#fff;border:0}.cred-qr-exact img{width:100%;height:100%;object-fit:contain}.cred-name-mask{z-index:1}.cred-name-exact,.cred-role-exact,.cred-data-exact,.cred-qr-exact,.cred-photo-exact{z-index:2}</style></head><body><div class="sheet">${front.outerHTML}${back.outerHTML}</div><script>window.onload=()=>setTimeout(()=>window.print(),500)<\/script></body></html>`;
+  win.document.open();win.document.write(html);win.document.close();
 }
 async function credentialFor(type,id){
   const p=await api(type==='student'?'/api/students/'+id:'/api/teachers/'+id);
@@ -324,7 +356,6 @@ async function credentialFor(type,id){
   modal('Credencial · '+esc(type==='student'?'Alumno':'Maestro'),credentialMarkup(p,type),'Cerrar',closeModal);
   setTimeout(()=>{const q=$('credqr');if(q)makeQR('credqr','EMPODERARTE|'+(type==='student'?'ALUMNO':'MAESTRO')+'|'+p.matricula)},50);
 }
-
 function makeQR(id,text){const el=$(id);if(!el)return;el.innerHTML=`<img src="/api/credential-qr?text=${encodeURIComponent(text)}" width="180" height="180" alt="QR">`}
 async function reports(){const d=await api('/api/report');const nuevos=Array.isArray(d.nuevos_ingresos)?d.nuevos_ingresos:[];const nuevosHtml=nuevos.length?`<div class="tablewrap"><table class="table"><tr><th>Alumno</th><th>Matrícula</th><th>Fecha de ingreso</th><th>Plan</th><th></th></tr>${nuevos.map(s=>`<tr><td><b>${esc(s.name)} ${esc(s.last_name)}</b></td><td>${esc(s.matricula)}</td><td>${fmtDate(s.enrollment_date)}</td><td>${esc(s.plan||'—')}</td><td><button class="btn light" onclick="profile(${s.id})">Ficha</button></td></tr>`).join('')}</table></div>`:'<div class="empty">No hay alumnos marcados como NUEVO INGRESO en este mes.</div>';$('content').innerHTML=`<div class="cards"><div class="card"><div class="muted">Alumnos registrados</div><div class="metric">${d.alumnos}</div></div><div class="card"><div class="muted">Alumnos activos</div><div class="metric">${d.activos}</div></div><div class="card"><div class="muted">Ingresos del mes</div><div class="metric">$${(+d.ingresos).toLocaleString('es-MX')}</div></div><div class="card"><div class="muted">Vencidos</div><div class="metric">${d.vencidos}</div></div><div class="card"><div class="muted">Nuevos ingresos del mes</div><div class="metric">${d.inscripciones_mes||0}</div></div></div><div class="section card"><div class="sectionhead"><h3>🆕 Alumnos nuevos del mes</h3><span class="pill">NUEVO INGRESO</span></div>${nuevosHtml}</div>`}
 async function alerts(){const r=await api('/api/monthly');const a=r.filter(x=>x.payment_status==='Vencido'||x.due_date===todayLocal());$('content').innerHTML=`<div class="card"><h3>🔔 Vencimientos y recordatorios</h3><div class="notice">Aquí aparecen los alumnos que tienen vencimiento hoy o que ya vencieron. Un vencimiento permanece visible hasta que se registra el pago; después desaparece automáticamente.</div><br><div class="tablewrap"><table class="table"><tr><th>Alumno</th><th>Vencimiento</th><th>Estado</th><th>Importe</th><th></th></tr>${a.map(x=>`<tr><td>${esc(x.name)} ${esc(x.last_name)}<br><small>${esc(x.matricula)}</small></td><td>${fmtDate(x.due_date||'—')}</td><td>${status(x.payment_status)}</td><td>$${(+x.monthly_fee).toLocaleString('es-MX',{minimumFractionDigits:2})}</td><td>${x.phone?`<button class="btn primary" onclick="wa('${esc(x.phone)}','${esc(x.name)}','${esc(x.due_date||'')}','${+x.monthly_fee}')">📲 WhatsApp</button>`:''}<button class="btn gold" onclick="payFor(${x.id})">Cobrar</button><button class="btn danger" onclick="removeRecord('ALUMNO',${x.id},'el alumno')">🗑 Eliminar</button></td></tr>`).join('')||'<tr><td colspan="5"><div class="empty">No hay vencimientos.</div></td></tr>'}</table></div></div>`}

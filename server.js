@@ -409,38 +409,26 @@ app.post('/api/delete',auth,async(q,s)=>{
       const monthlyCharges=await all('SELECT * FROM monthly_charges WHERE student_id=$1 ORDER BY id',[id]); const allocIds=monthlyCharges.map(c=>c.id); const allocations=allocIds.length?await all('SELECT * FROM payment_allocations WHERE charge_id=ANY($1::int[]) ORDER BY id',[allocIds]):[]; snapshot={record:x,payments,attendance,lockers,locker_payments:lockerPayments,locker_penalties:lockerPenalties,monthly_charges:monthlyCharges,payment_allocations:allocations};
       name=x.name;last_name=x.last_name;matricula=x.matricula;
       if(lockerIds.length){await client.query('DELETE FROM locker_payments WHERE locker_id=ANY($1::int[])',[lockerIds]);await client.query('DELETE FROM locker_penalties WHERE locker_id=ANY($1::int[])',[lockerIds]);await client.query('DELETE FROM lockers WHERE student_id=$1',[id]);}
+      // Romper primero la referencia circular monthly_charges.package_payment_id -> payments.id.
+      // Algunas versiones anteriores del sistema usan esta FK para promociones/paquetes.
+      await client.query('UPDATE monthly_charges SET package_payment_id=NULL WHERE package_payment_id IN (SELECT id FROM payments WHERE student_id=$1)',[id]);
       await client.query('DELETE FROM payments WHERE student_id=$1',[id]);
       await client.query('DELETE FROM monthly_charges WHERE student_id=$1',[id]);
       await client.query('DELETE FROM attendance WHERE student_id=$1',[id]);
-      // Compatibilidad con versiones anteriores: algunas instalaciones pueden
-      // conservar tablas adicionales con FK hacia students. Primero eliminamos
-      // cualquier registro dependiente, incluso si la FK es compuesta, para que
-      // la eliminación no falle por una restricción antigua.
-      const refs=await all(`SELECT c.conrelid::regclass::text AS table_name,
-        array_agg(a.attname ORDER BY u.ord) AS local_columns,
-        array_agg(pa.attname ORDER BY u.ord) AS parent_columns
+      // Compatibilidad con versiones anteriores: elimina cualquier otra tabla que
+      // tenga una FK directa student_id -> students.id antes de borrar al alumno.
+      const refs=await all(`SELECT c.conrelid::regclass::text AS table_name,a.attname AS column_name
         FROM pg_constraint c
-        JOIN LATERAL unnest(c.conkey) WITH ORDINALITY u(attnum,ord) ON true
-        JOIN LATERAL unnest(c.confkey) WITH ORDINALITY v(attnum,ord) ON v.ord=u.ord
-        JOIN pg_attribute a ON a.attrelid=c.conrelid AND a.attnum=u.attnum AND NOT a.attisdropped
-        JOIN pg_attribute pa ON pa.attrelid=c.confrelid AND pa.attnum=v.attnum AND NOT pa.attisdropped
+        JOIN pg_attribute a ON a.attrelid=c.conrelid AND a.attnum=c.conkey[1] AND NOT a.attisdropped
         WHERE c.contype='f' AND c.confrelid='students'::regclass
-        GROUP BY c.oid,c.conrelid`);
+          AND array_length(c.conkey,1)=1 AND array_length(c.confkey,1)=1
+          AND c.confkey[1]=(SELECT attnum FROM pg_attribute WHERE attrelid='students'::regclass AND attname='id')`);
       const handled=new Set(['payments','attendance','lockers','monthly_charges']);
       for(const ref of refs){
         const table=String(ref.table_name).replace(/^.*\./,'');
-        const locals=Array.isArray(ref.local_columns)?ref.local_columns:[];
-        const parents=Array.isArray(ref.parent_columns)?ref.parent_columns:[];
-        if(handled.has(table) || !/^[a-z_][a-z0-9_]*$/.test(table) || !locals.length || locals.length!==parents.length)continue;
-        const clauses=[],vals=[];
-        for(let i=0;i<locals.length;i++){
-          const local=String(locals[i]),parent=String(parents[i]);
-          if(!/^[a-z_][a-z0-9_]*$/.test(local) || !/^[a-z_][a-z0-9_]*$/.test(parent))continue;
-          if(!(parent in x))continue;
-          vals.push(x[parent]);
-          clauses.push(`"${local}"=$${vals.length}`);
+        if(!handled.has(table) && /^[a-z_][a-z0-9_]*$/.test(table) && /^[a-z_][a-z0-9_]*$/.test(ref.column_name)){
+          await client.query(`DELETE FROM "${table}" WHERE "${ref.column_name}"=$1`,[id]);
         }
-        if(clauses.length===locals.length)await client.query(`DELETE FROM "${table}" WHERE ${clauses.join(' AND ')}`,vals);
       }
       await client.query('DELETE FROM students WHERE id=$1',[id]);
     } else if(entity==='PAGO'){
@@ -501,7 +489,9 @@ app.post('/api/delete',auth,async(q,s)=>{
       if(id===Number(q.user.id))throw Error('No puedes eliminar el usuario con el que estás conectado');
       if(x.email==='director@empoderarte.local')throw Error('El Director principal está protegido');
       snapshot={record:x};name=x.name;
-      await client.query('UPDATE users SET active=0 WHERE id=$1',[id]);
+      // La Papelera conserva deleted_by; se pone NULL antes de borrar el usuario para no violar FK.
+      await client.query('UPDATE trash SET deleted_by=NULL WHERE deleted_by=$1',[id]);
+      await client.query('DELETE FROM users WHERE id=$1',[id]);
     } else if(entity==='PLAN'){
       const x=await one('SELECT * FROM plans WHERE id=$1',[id]); if(!x)throw Error('Plan no encontrado');
       snapshot={record:x};name=x.name;
