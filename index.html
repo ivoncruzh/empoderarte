@@ -136,12 +136,15 @@
 .cred-exact img.cred-bg{position:absolute;inset:0;width:100%;height:100%;object-fit:fill;display:block}
 .cred-overlay{position:absolute;inset:0;font-family:Arial,Helvetica,sans-serif}
 .cred-photo-exact{position:absolute;left:31.875%;top:24.64%;width:37.03%;height:22.58%;object-fit:cover;border-radius:2.2mm;border:0;z-index:3}
-.cred-name-mask{position:absolute;left:14.375%;top:47.99%;width:71.25%;height:5.15%;background:rgba(255,255,255,.97);border-radius:1.5mm;z-index:1}
+.cred-name-mask{display:none}
 .cred-name-exact{position:absolute;left:14.84%;top:48.76%;width:70.31%;height:4.33%;display:flex;align-items:center;justify-content:center;color:#111;font-family:Georgia,serif;font-size:3mm;font-weight:700;text-transform:uppercase;line-height:1;white-space:nowrap;overflow:hidden;z-index:2}
 .cred-role-exact{position:absolute;left:26.56%;top:53.30%;width:46.88%;height:4.85%;display:flex;align-items:center;justify-content:center;background:#050505;color:#fff;border:.45mm solid #c99a32;border-radius:28px;letter-spacing:.7mm;font-size:3mm;font-weight:700;z-index:3}
-.cred-data-exact{position:absolute;left:19.69%;top:58.56%;width:44.53%;height:18.04%;color:#111;background:transparent;line-height:1.08;z-index:3}
-.cred-data-exact .lbl{display:block;font-size:1.75mm;margin-top:0;color:#111}
-.cred-data-exact .val{display:block;font-size:2.35mm;font-weight:700;margin-bottom:1.2mm;background:rgba(255,255,255,.97);width:100%;white-space:nowrap;overflow:hidden;color:#111}
+.cred-data-exact{position:absolute;left:17.2%;top:58.8%;width:66.2%;height:18.2%;color:#111;z-index:3;font-family:Arial,Helvetica,sans-serif}
+.cred-data-exact .data-line{height:33.33%;display:flex;align-items:center;gap:1.2mm;white-space:nowrap;overflow:hidden;line-height:1}
+.cred-data-exact .lbl{font-size:1.85mm;color:#222;font-weight:700;flex:0 0 auto}
+.cred-data-exact .val{font-size:2.35mm;font-weight:800;color:#111;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.cred-data-exact .discipline-line{width:54%}
+.cred-data-exact .discipline-line .val{max-width:45%}
 .cred-qr-exact{position:absolute;left:9.53%;top:78.04%;width:25.78%;height:13.61%;display:flex;align-items:center;justify-content:center;overflow:hidden;background:#fff;z-index:3}
 .cred-qr-exact img{width:100%;height:100%;display:block;object-fit:contain}
 @media print{body *{visibility:hidden!important}.cred-print-wrap,.cred-print-wrap *{visibility:visible!important}.cred-print-wrap{position:absolute;left:0;top:0;width:100%;height:100%;background:#fff!important;padding:0!important;gap:8mm!important;align-items:center;justify-content:center;flex-wrap:nowrap}.cred-exact{box-shadow:none!important;break-inside:avoid;page-break-inside:avoid}}
@@ -250,7 +253,11 @@ function credentialMarkup(p,type){
     <div class="cred-size-row"><label>Ancho (mm)<input id="credSizeW" type="number" min="40" max="100" step="1" value="56" oninput="updateCredentialSize()"></label><label>Alto (mm)<input id="credSizeH" type="number" min="60" max="140" step="1" value="85" oninput="updateCredentialSize()"></label><span class="small muted">Tamaño inicial: 56 × 85 mm. Puedes cambiarlo.</span></div>
     <div class="cred-edit-actions"><button class="btn gold" onclick="downloadCredentialPNG()">⬇️ Descargar frente + reverso</button><button class="btn primary" onclick="printCredential()">🖨 Imprimir / PDF</button></div></div>
   <div class="cred-print-wrap" id="credentialPreview">
-    <div class="cred-exact" id="credentialFrontExact"><img class="cred-bg" src="/credential-front-clean.jpg" alt="Credencial frente"><div class="cred-overlay">${photo}<div class="cred-name-exact" id="credPreviewName">${safeName}</div><div class="cred-role-exact"><span id="credPreviewRole">${role}</span></div><div class="cred-data-exact"><div class="data-line"><span class="lbl">Matrícula:</span><span class="val" id="credPreviewMat">${safeMat}</span></div><div class="data-line"><span class="lbl">Ingreso:</span><span class="val" id="credPreviewDate">${safeDate}</span></div><div class="data-line"><span class="lbl">Disciplina:</span><span class="val" id="credPreviewDisc">${safeDisc}</span></div></div><div id="credqr" class="cred-qr-exact"></div></div></div>
+    <div class="cred-exact" id="credentialFrontExact"><img class="cred-bg" src="/credential-front-clean.jpg" alt="Credencial frente"><div class="cred-overlay">${photo}<div class="cred-name-exact" id="credPreviewName">${safeName}</div><div class="cred-role-exact"><span id="credPreviewRole">${role}</span></div><div class="cred-data-exact">
+      <div class="data-line"><span class="lbl">Matrícula:</span><span class="val" id="credPreviewMat">${safeMat}</span></div>
+      <div class="data-line"><span class="lbl">Fecha de ingreso:</span><span class="val" id="credPreviewDate">${safeDate}</span></div>
+      <div class="data-line discipline-line"><span class="lbl">Disciplina:</span><span class="val" id="credPreviewDisc">${safeDisc}</span></div>
+    </div><div id="credqr" class="cred-qr-exact"></div></div></div>
     <div class="cred-exact" id="credentialBackExact"><img class="cred-bg" src="/credential-back-clean.jpg" alt="Credencial reverso"></div>
   </div>`;
   setTimeout(updateCredentialSize,0);
@@ -280,9 +287,11 @@ async function credentialCanvasData(){
   const [front,back,qr]=await Promise.all([load('/credential-front-clean.jpg'),load('/credential-back-clean.jpg'),load('/api/credential-qr?text='+encodeURIComponent('EMPODERARTE|'+role+'|'+mat))]);
   const cw=677,ch=985,gap=55,canvas=document.createElement('canvas');canvas.width=cw*2+gap;canvas.height=ch;const ctx=canvas.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,canvas.width,canvas.height);ctx.drawImage(front,0,0,cw,ch);ctx.drawImage(back,cw+gap,0,cw,ch);
   if(window.__credentialPhotoData){const ph=await load(window.__credentialPhotoData);ctx.save();ctx.beginPath();ctx.roundRect(210,260,254,218,18);ctx.clip();ctx.drawImage(ph,210,260,254,218);ctx.restore();ctx.strokeStyle='#c9962e';ctx.lineWidth=3;ctx.strokeRect(210,260,254,218)}
-  ctx.fillStyle='rgba(255,255,255,.98)';ctx.fillRect(115,486,447,60);ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle='#111';let fs=35;ctx.font=`800 ${fs}px Arial`;while(fs>18&&ctx.measureText(name.toUpperCase()).width>430){fs--;ctx.font=`800 ${fs}px Arial`;}ctx.fillText(name.toUpperCase(),338,515);
+  ctx.fillStyle='rgba(249,248,245,.98)';ctx.fillRect(100,478,477,64);ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle='#111';let fs=34;ctx.font=`800 ${fs}px Arial`;while(fs>18&&ctx.measureText(name.toUpperCase()).width>430){fs--;ctx.font=`800 ${fs}px Arial`;}ctx.fillText(name.toUpperCase(),338,512);
   ctx.fillStyle='#050505';ctx.fillRect(157,542,363,45);ctx.strokeStyle='#c9962e';ctx.lineWidth=5;ctx.strokeRect(159,544,359,41);ctx.fillStyle='#fff';ctx.font='800 25px Arial';ctx.fillText(role,338,566);
-  ctx.textAlign='left';ctx.fillStyle='#111';ctx.font='700 15px Arial';ctx.fillText('Matrícula:',183,649);ctx.font='800 20px Arial';ctx.fillText(mat,268,649);ctx.font='700 15px Arial';ctx.fillText('Ingreso:',183,709);ctx.font='800 20px Arial';ctx.fillText(date,258,709);ctx.font='700 15px Arial';ctx.fillText('Disciplina:',183,769);ctx.font='800 20px Arial';ctx.fillText(disc,270,769);ctx.drawImage(qr,61,773,153,153);
+  ctx.textAlign='left';ctx.fillStyle='#111';ctx.font='700 15px Arial';ctx.fillText('Matrícula:',116,635);ctx.font='800 20px Arial';ctx.fillText(mat,218,635);
+  ctx.font='700 15px Arial';ctx.fillText('Fecha de ingreso:',116,694);ctx.font='800 20px Arial';ctx.fillText(date,286,694);
+  ctx.font='700 15px Arial';ctx.fillText('Disciplina:',116,753);ctx.font='800 20px Arial';ctx.fillText(disc,218,753);ctx.drawImage(qr,65,778,150,150);
   return {canvas,name};
 }
 async function downloadCredentialPNG(){
