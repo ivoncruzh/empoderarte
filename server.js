@@ -20,13 +20,9 @@ async function repairPaymentDates(){
   await pool.query(`UPDATE monthly_charges mc SET balance=CASE WHEN COALESCE(mc.covered_by_package,0)=1 THEN 0 ELSE GREATEST(0,mc.amount-mc.discount-COALESCE((SELECT SUM(pa.amount) FROM payment_allocations pa WHERE pa.charge_id=mc.id),0)) END, status=CASE WHEN COALESCE(mc.covered_by_package,0)=1 OR GREATEST(0,mc.amount-mc.discount-COALESCE((SELECT SUM(pa.amount) FROM payment_allocations pa WHERE pa.charge_id=mc.id),0))<=0 THEN 'Pagado' WHEN COALESCE((SELECT SUM(pa.amount) FROM payment_allocations pa WHERE pa.charge_id=mc.id),0)>0 THEN 'Parcial' ELSE 'Pendiente' END, updated_at=CURRENT_TIMESTAMP`);
   await pool.query(`UPDATE payments p SET period=(SELECT MIN(mc.period_start)||' → '||MAX(mc.period_end) FROM payment_allocations pa JOIN monthly_charges mc ON mc.id=pa.charge_id WHERE pa.payment_id=p.id) WHERE EXISTS(SELECT 1 FROM payment_allocations pa WHERE pa.payment_id=p.id)`);
   await pool.query(`UPDATE payments p SET period=mc.period_start||' → '||mc.period_end FROM monthly_charges mc WHERE p.monthly_charge_id=mc.id AND COALESCE(mc.covered_by_package,0)=0 AND NOT EXISTS(SELECT 1 FROM payment_allocations pa WHERE pa.payment_id=p.id)`);
-  const students=await pool.query('SELECT id FROM students ORDER BY id');
-  for(const st of students.rows){
-    const charges=await ensureMonthlyCharges(st.id,12);
-    const open=charges.filter(c=>Number(c.balance)>0&&!c.covered_by_package);
-    const due=open[0]?.due_date||null;
-    await pool.query('UPDATE students SET due_date=$1,updated_at=CURRENT_TIMESTAMP WHERE id=$2',[due,st.id]);
-  }
+  // Do not generate monthly charges for every student during startup.
+  // This caused excessive memory usage and repeated database queries on Render's free instance.
+  // Charges are generated on demand for the selected student/monthly view.
 }
 
 async function init(){
