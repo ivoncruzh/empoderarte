@@ -9,20 +9,62 @@ const PORT=process.env.PORT||3000;
 const JWT_SECRET=process.env.JWT_SECRET||'CAMBIA-ESTA-CLAVE-EMPODERARTE';
 const pool=new Pool({connectionString:process.env.DATABASE_URL,ssl:process.env.DATABASE_URL?{rejectUnauthorized:false}:false,max:Number(process.env.PGPOOL_MAX||10),idleTimeoutMillis:30000,connectionTimeoutMillis:10000});
 
-const today=()=>new Date().toISOString().slice(0,10);
-const nextMonth=d=>{const x=new Date((d&&d>=today()?d:today())+'T12:00:00');x.setMonth(x.getMonth()+1);return x.toISOString().slice(0,10)};
-const addMonths=(d,n)=>{const x=new Date((d&&d>=today()?d:today())+'T12:00:00');x.setMonth(x.getMonth()+Number(n||0));return x.toISOString().slice(0,10)};
-const addMonthsExact=(d,n)=>{const x=new Date(String(d)+'T12:00:00');x.setMonth(x.getMonth()+Number(n||0));return x.toISOString().slice(0,10)};
-async function ensureMonthlyCharges(studentId,horizonMonths=12){const stq=await pool.query('SELECT s.*,p.id plan_catalog_id,p.months plan_months,p.fee plan_fee FROM students s LEFT JOIN plans p ON p.id=s.plan_id WHERE s.id=$1',[studentId]);if(!stq.rowCount)return [];const st=stq.rows[0];const start=st.plan_start_date||st.enrollment_date||today();let periodStart=start;const max=Number(horizonMonths)||12;for(let i=0;i<max;i++){const periodEnd=addMonthsExact(periodStart,1);const amount=Number(st.monthly_fee??st.plan_fee??0);const existing=await pool.query('SELECT id FROM monthly_charges WHERE student_id=$1 AND period_start=$2',[studentId,periodStart]);if(!existing.rowCount){await pool.query(`INSERT INTO monthly_charges(student_id,plan_id,period_start,period_end,due_date,amount,discount,balance,status,covered_by_package,package_payment_id) VALUES($1,$2,$3,$4,$4,$5,0,$5,'Pendiente',0,NULL)`,[studentId,st.plan_id||st.plan_catalog_id||null,periodStart,periodEnd,amount]);}else{await pool.query('UPDATE monthly_charges SET due_date=period_end WHERE id=$1',[existing.rows[0].id]);}periodStart=periodEnd;}return (await pool.query(`SELECT mc.*,p.name plan_name,COALESCE((SELECT SUM(pa.amount) FROM payment_allocations pa WHERE pa.charge_id=mc.id),0) paid_amount FROM monthly_charges mc LEFT JOIN plans p ON p.id=mc.plan_id WHERE mc.student_id=$1 ORDER BY mc.period_start`,[studentId])).rows.map(x=>{const paid=Number(x.paid_amount||0),covered=Number(x.covered_by_package||0)===1,bal=covered?0:Math.max(0,Number(x.amount)-Number(x.discount||0)-paid),stt=covered||bal<=0?'Pagado':new Date(x.due_date+'T12:00:00')<new Date()?'Vencido':paid>0?'Parcial':'Pendiente';return {...x,covered_by_package:covered,paid_amount:paid,balance:bal,status:stt}})}
+const today=()=>new Intl.DateTimeFormat('en-CA',{timeZone:'America/Mexico_City',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
+const clampMonthDate=(d,n)=>{const m=String(d||'').match(/^(\d{4})-(\d{2})-(\d{2})/);if(!m)return today();const y=Number(m[1]),mo=Number(m[2])-1,day=Number(m[3]);const target=new Date(Date.UTC(y,mo+Number(n||0),1));const last=new Date(Date.UTC(target.getUTCFullYear(),target.getUTCMonth()+1,0)).getUTCDate();return `${target.getUTCFullYear()}-${String(target.getUTCMonth()+1).padStart(2,'0')}-${String(Math.min(day,last)).padStart(2,'0')}`};
+const nextMonth=d=>clampMonthDate(d&&d>=today()?d:today(),1);
+const addMonths=(d,n)=>clampMonthDate(d&&d>=today()?d:today(),n);
+const addMonthsExact=(d,n)=>clampMonthDate(d,n);
+async function ensureMonthlyCharges(studentId,horizonMonths=12){
+  const stq=await pool.query('SELECT s.*,p.id plan_catalog_id,p.months plan_months,p.fee plan_fee FROM students s LEFT JOIN plans p ON p.id=s.plan_id WHERE s.id=$1',[studentId]);
+  if(!stq.rowCount)return [];
+  const st=stq.rows[0];
+  const start=st.plan_start_date||st.enrollment_date||today();
+  let periodStart=start;
+  const max=Number(horizonMonths)||12;
+  for(let i=0;i<max;i++){
+    const periodEnd=addMonthsExact(periodStart,1);
+    const amount=Number(st.monthly_fee??st.plan_fee??0);
+    const existing=await pool.query('SELECT id FROM monthly_charges WHERE student_id=$1 AND period_start=$2',[studentId,periodStart]);
+    if(!existing.rowCount){
+      await pool.query(`INSERT INTO monthly_charges(student_id,plan_id,period_start,period_end,due_date,amount,discount,balance,status,covered_by_package,package_payment_id) VALUES($1,$2,$3,$4,$4,$5,0,$5,'Pendiente',0,NULL)`,[studentId,st.plan_id||st.plan_catalog_id||null,periodStart,periodEnd,amount]);
+    }else{
+      await pool.query('UPDATE monthly_charges SET period_end=$2,due_date=$2,updated_at=CURRENT_TIMESTAMP WHERE id=$1',[existing.rows[0].id,periodEnd]);
+    }
+    periodStart=periodEnd;
+  }
+  const rows=(await pool.query(`SELECT mc.*,p.name plan_name,COALESCE((SELECT SUM(pa.amount) FROM payment_allocations pa WHERE pa.charge_id=mc.id),0) paid_amount FROM monthly_charges mc LEFT JOIN plans p ON p.id=mc.plan_id WHERE mc.student_id=$1 ORDER BY mc.period_start`,[studentId])).rows.map(x=>{
+    const paid=Number(x.paid_amount||0),covered=Number(x.covered_by_package||0)===1;
+    const bal=covered?0:Math.max(0,Number(x.amount)-Number(x.discount||0)-paid);
+    const due=String(x.due_date||x.period_end||'');
+    const dueStatus=due<today()?'Vencido':due===today()?'Vence hoy':'Al corriente';
+    const stt=covered||bal<=0?'Pagado':paid>0?'Parcial':dueStatus;
+    return {...x,covered_by_package:covered,paid_amount:paid,balance:bal,status:stt};
+  });
+  const next=rows.find(x=>Number(x.balance||0)>0&&!x.covered_by_package);
+  const due=next?.due_date||rows[rows.length-1]?.due_date||null;
+  await pool.query('UPDATE students SET due_date=$1,updated_at=CURRENT_TIMESTAMP WHERE id=$2',[due,studentId]);
+  return rows;
+}
 
 async function repairPaymentDates(){
-  await pool.query(`UPDATE monthly_charges SET due_date=period_end,updated_at=CURRENT_TIMESTAMP WHERE due_date IS DISTINCT FROM period_end`);
-  await pool.query(`UPDATE monthly_charges mc SET balance=CASE WHEN COALESCE(mc.covered_by_package,0)=1 THEN 0 ELSE GREATEST(0,mc.amount-mc.discount-COALESCE((SELECT SUM(pa.amount) FROM payment_allocations pa WHERE pa.charge_id=mc.id),0)) END, status=CASE WHEN COALESCE(mc.covered_by_package,0)=1 OR GREATEST(0,mc.amount-mc.discount-COALESCE((SELECT SUM(pa.amount) FROM payment_allocations pa WHERE pa.charge_id=mc.id),0))<=0 THEN 'Pagado' WHEN COALESCE((SELECT SUM(pa.amount) FROM payment_allocations pa WHERE pa.charge_id=mc.id),0)>0 THEN 'Parcial' ELSE 'Pendiente' END, updated_at=CURRENT_TIMESTAMP`);
+  const students=await pool.query('SELECT id,plan_start_date,enrollment_date FROM students');
+  for(const st of students.rows){
+    let periodStart=st.plan_start_date||st.enrollment_date;
+    if(!periodStart)continue;
+    const charges=await pool.query('SELECT id,period_start FROM monthly_charges WHERE student_id=$1 ORDER BY period_start',[st.id]);
+    for(const ch of charges.rows){
+      const start=ch.period_start||periodStart;
+      const end=addMonthsExact(start,1);
+      await pool.query('UPDATE monthly_charges SET period_start=$1,period_end=$2,due_date=$2,updated_at=CURRENT_TIMESTAMP WHERE id=$3',[start,end,ch.id]);
+      periodStart=end;
+    }
+    const next=await pool.query("SELECT due_date FROM monthly_charges WHERE student_id=$1 AND balance>0 AND COALESCE(covered_by_package,0)=0 ORDER BY period_start LIMIT 1",[st.id]);
+    const last=await pool.query('SELECT due_date FROM monthly_charges WHERE student_id=$1 ORDER BY period_start DESC LIMIT 1',[st.id]);
+    await pool.query('UPDATE students SET due_date=$1,updated_at=CURRENT_TIMESTAMP WHERE id=$2',[next.rows[0]?.due_date||last.rows[0]?.due_date||null,st.id]);
+  }
+  await pool.query(`UPDATE monthly_charges mc SET balance=CASE WHEN COALESCE(mc.covered_by_package,0)=1 THEN 0 ELSE GREATEST(0,mc.amount-mc.discount-COALESCE((SELECT SUM(pa.amount) FROM payment_allocations pa WHERE pa.charge_id=mc.id),0)) END, status=CASE WHEN COALESCE(mc.covered_by_package,0)=1 OR GREATEST(0,mc.amount-mc.discount-COALESCE((SELECT SUM(pa.amount) FROM payment_allocations pa WHERE pa.charge_id=mc.id),0))<=0 THEN 'Pagado' WHEN COALESCE((SELECT SUM(pa.amount) FROM payment_allocations pa WHERE pa.charge_id=mc.id),0)>0 THEN 'Parcial' WHEN mc.due_date < CURRENT_DATE::text THEN 'Vencido' WHEN mc.due_date = CURRENT_DATE::text THEN 'Vence hoy' ELSE 'Al corriente' END, updated_at=CURRENT_TIMESTAMP`);
   await pool.query(`UPDATE payments p SET period=(SELECT MIN(mc.period_start)||' → '||MAX(mc.period_end) FROM payment_allocations pa JOIN monthly_charges mc ON mc.id=pa.charge_id WHERE pa.payment_id=p.id) WHERE EXISTS(SELECT 1 FROM payment_allocations pa WHERE pa.payment_id=p.id)`);
   await pool.query(`UPDATE payments p SET period=mc.period_start||' → '||mc.period_end FROM monthly_charges mc WHERE p.monthly_charge_id=mc.id AND COALESCE(mc.covered_by_package,0)=0 AND NOT EXISTS(SELECT 1 FROM payment_allocations pa WHERE pa.payment_id=p.id)`);
-  // Do not generate monthly charges for every student during startup.
-  // This caused excessive memory usage and repeated database queries on Render's free instance.
-  // Charges are generated on demand for the selected student/monthly view.
 }
 
 async function init(){
