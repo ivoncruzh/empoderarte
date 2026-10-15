@@ -183,7 +183,8 @@ CREATE TABLE IF NOT EXISTS payment_allocations(id SERIAL PRIMARY KEY,payment_id 
   await pool.query(`CREATE TABLE IF NOT EXISTS matricula_counters(prefix TEXT NOT NULL, year INTEGER NOT NULL, next_number INTEGER NOT NULL DEFAULT 1, PRIMARY KEY(prefix,year))`);
   const stg=await pool.query('SELECT id FROM settings WHERE id=1');
   if(!stg.rowCount) await pool.query('INSERT INTO settings(id,config) VALUES(1,$1::jsonb)',[{"school_name": "EmpoderArte Escuela de Danza", "subtitle": "Escuela de Danza", "phone": "", "whatsapp": "", "email": "", "address": "", "facebook": "", "instagram": "", "primary_color": "#6b3fa0", "secondary_color": "#d4a84f", "sidebar_color": "#2d2138", "background_color": "#f7f4fa", "text_color": "#30253b", "currency": "MXN", "matricula_prefix": "EMP", "receipt_prefix": "REC", "default_due_day": 10, "whatsapp_days": 3, "tolerance_days": 0, "payment_methods": ["Efectivo", "Transferencia", "Tarjeta", "Otro"], "receipt_message": "Gracias por formar parte de EmpoderArte.", "qr_footer": "EmpoderArte · Escuela de Danza", "logo_url": "/logo-empoderarte.jpg", "logo_data": "", "locker_default_price": 100, "locker_default_months": 1, "whatsapp_message": "Hola {nombre}, te recordamos que tu mensualidad vence el {vencimiento}. Importe: {importe}. Gracias por formar parte de EmpoderArte."}]);
-  await repairPaymentDates();
+  // Seguridad: no ejecutar reparaciones masivas de pagos/vencimientos automáticamente al iniciar.
+  // Ejecutar repairPaymentDates() solo tras revisión explícita y respaldo verificado.
 }
 async function getConfig(){const r=await pool.query('SELECT config FROM settings WHERE id=1');return r.rowCount?(r.rows[0].config||{}):{}}
 async function matricula(db=pool){
