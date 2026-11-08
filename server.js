@@ -9,11 +9,12 @@ const PORT=process.env.PORT||3000;
 const JWT_SECRET=process.env.JWT_SECRET||'CAMBIA-ESTA-CLAVE-EMPODERARTE';
 const pool=new Pool({connectionString:process.env.DATABASE_URL,ssl:process.env.DATABASE_URL?{rejectUnauthorized:false}:false,max:Number(process.env.PGPOOL_MAX||10),idleTimeoutMillis:30000,connectionTimeoutMillis:10000});
 
-const today=()=>new Intl.DateTimeFormat('en-CA',{timeZone:'America/Mexico_City',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
+const today=()=>{const p=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Mexico_City',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date());const v=Object.fromEntries(p.map(x=>[x.type,x.value]));return `${v.year}-${v.month}-${v.day}`};
 const clampMonthDate=(d,n)=>{const m=String(d||'').match(/^(\d{4})-(\d{2})-(\d{2})/);if(!m)return today();const y=Number(m[1]),mo=Number(m[2])-1,day=Number(m[3]);const target=new Date(Date.UTC(y,mo+Number(n||0),1));const last=new Date(Date.UTC(target.getUTCFullYear(),target.getUTCMonth()+1,0)).getUTCDate();return `${target.getUTCFullYear()}-${String(target.getUTCMonth()+1).padStart(2,'0')}-${String(Math.min(day,last)).padStart(2,'0')}`};
 const nextMonth=d=>clampMonthDate(d&&d>=today()?d:today(),1);
 const addMonths=(d,n)=>clampMonthDate(d&&d>=today()?d:today(),n);
 const addMonthsExact=(d,n)=>clampMonthDate(d,n);
+const monthOffset=(a,b)=>{const x=String(a).slice(0,10).split('-').map(Number),y=String(b).slice(0,10).split('-').map(Number);return (y[0]-x[0])*12+(y[1]-x[1])};
 async function ensureMonthlyCharges(studentId,horizonMonths=12){
   const stq=await pool.query('SELECT s.*,p.id plan_catalog_id,p.months plan_months,p.fee plan_fee FROM students s LEFT JOIN plans p ON p.id=s.plan_id WHERE s.id=$1',[studentId]);
   if(!stq.rowCount)return [];
@@ -27,29 +28,37 @@ async function ensureMonthlyCharges(studentId,horizonMonths=12){
     [studentId]
   );
 
-  // No se reescriben cargos existentes. Solo se completan periodos faltantes
-  // hasta el horizonte solicitado, evitando crear 12 cargos nuevos en cada visita.
-  let periodStart;
+  // La fecha de aniversario se conserva desde el primer periodo, no desde
+  // el último vencimiento (evita que 31-ene -> 28-feb -> 28-mar se desplace).
+  // Nunca se reescriben periodos existentes ni pagos históricos.
+  let anchor, periodStart, periodIndex;
   if(existing.rows.length){
-    periodStart=existing.rows[existing.rows.length-1].period_end;
+    anchor=String(existing.rows[0].period_start).slice(0,10);
+    periodStart=String(existing.rows[existing.rows.length-1].period_end).slice(0,10);
+    periodIndex=Math.max(0,monthOffset(anchor,periodStart));
   }else if(st.due_date){
-    // Si hay vencimiento legado pero no cargos, reconstruir desde el periodo
-    // asociado a ese vencimiento, sin tocar recibos ni pagos históricos.
-    periodStart=addMonthsExact(st.due_date,-1);
+    anchor=addMonthsExact(String(st.due_date).slice(0,10),-1);
+    periodStart=anchor;
+    periodIndex=0;
   }else{
-    const base=st.plan_start_date||st.enrollment_date||today();
-    // No inventar años de adeudos históricos cuando no existe una fecha fiable.
-    periodStart=base<today()?today():base;
+    const base=String(st.plan_start_date||st.enrollment_date||today()).slice(0,10);
+    // Sin cargos ni vencimiento heredado no se crean adeudos retroactivos
+    // automáticamente: la conciliación histórica debe ser revisada.
+    anchor=base<today()?today():base;
+    periodStart=anchor;
+    periodIndex=0;
   }
 
   const values=[],params=[];
   let guard=0;
-  while(periodStart<cutoff && guard<max+2){
-    const periodEnd=addMonthsExact(periodStart,1);
+  while(periodStart<cutoff && guard<max+24){
+    const periodEnd=addMonthsExact(anchor,periodIndex+1);
+    if(periodEnd<=periodStart)break;
     const base=values.length*6;
     values.push(`($${base+1},$${base+2},$${base+3},$${base+4},$${base+5},$${base+6},0,$${base+6},'Pendiente',0,NULL)`);
     params.push(studentId,planId,periodStart,periodEnd,periodEnd,amount);
     periodStart=periodEnd;
+    periodIndex++;
     guard++;
   }
   if(values.length){
@@ -241,7 +250,7 @@ app.get('/api/credential-qr',async(q,s)=>{
 });
 app.use(express.static(path.join(__dirname,'public')));
 
-app.get('/health',(q,s)=>s.json({ok:true,app:'EmpoderArte',version:'2.5.1'}));
+app.get('/health',(q,s)=>s.json({ok:true,app:'EmpoderArte',version:'2.6.0'}));
 app.post('/api/login',async(q,s)=>{try{const b=q.body||{},r=await pool.query('SELECT * FROM users WHERE email=$1 AND active=1',[b.email||'']);const u=r.rows[0];if(!u||!bcrypt.compareSync(b.password||'',u.password_hash))return s.status(401).json({error:'Usuario o contraseña incorrectos'});await pool.query('UPDATE users SET last_login=CURRENT_TIMESTAMP WHERE id=$1',[u.id]);s.json({token:jwt.sign({id:u.id,name:u.name,email:u.email,role:u.role},JWT_SECRET,{expiresIn:'8h'}),user:{id:u.id,name:u.name,email:u.email,role:u.role}})}catch(e){console.error(e);s.status(500).json({error:'Error del servidor'})}});
 app.get('/api/me',auth,(q,s)=>s.json({user:q.user}));
 app.post('/api/change-password',auth,async(q,s)=>{try{const b=q.body||{},current=String(b.current_password||''),next=String(b.new_password||''),confirm=String(b.confirm_password||'');if(!current||!next||!confirm)return s.status(400).json({error:'Completa todos los campos'});if(next.length<8)return s.status(400).json({error:'La nueva contraseña debe tener al menos 8 caracteres'});if(next!==confirm)return s.status(400).json({error:'La confirmación no coincide con la nueva contraseña'});if(current===next)return s.status(400).json({error:'La nueva contraseña debe ser diferente a la actual'});const r=await pool.query('SELECT password_hash FROM users WHERE id=$1 AND active=1',[q.user.id]);const u=r.rows[0];if(!u||!bcrypt.compareSync(current,u.password_hash))return s.status(401).json({error:'La contraseña actual es incorrecta'});const hash=bcrypt.hashSync(next,10);await pool.query('UPDATE users SET password_hash=$1 WHERE id=$2',[hash,q.user.id]);await audit(q.user,'UPDATE','SEGURIDAD',q.user.id,'Contraseña cambiada por el usuario');s.json({ok:true,message:'Contraseña cambiada correctamente'})}catch(e){console.error(e);s.status(500).json({error:'No se pudo cambiar la contraseña'})}});
@@ -320,6 +329,29 @@ app.put('/api/benefits/:id',auth,director,async(q,s)=>{try{const b=q.body||{};co
 app.get('/api/users',auth,director,async(q,s)=>s.json((await pool.query('SELECT id,name,email,role,active,created_at,last_login FROM users ORDER BY id')).rows));
 app.post('/api/users',auth,director,async(q,s)=>{try{const b=q.body||{};const r=await pool.query('INSERT INTO users(name,email,password_hash,role) VALUES($1,$2,$3,$4) RETURNING id,name,email,role',[b.name,b.email,bcrypt.hashSync(b.password,10),b.role||'recepcion']);await audit(q.user,'CREATE','USUARIOS',r.rows[0].id,'Nuevo usuario');s.status(201).json(r.rows[0])}catch(e){console.error(e);s.status(400).json({error:'El correo ya existe'})}});
 app.get('/api/audit',auth,director,async(q,s)=>s.json((await pool.query('SELECT a.*,u.name user_name FROM audit a LEFT JOIN users u ON u.id=a.user_id ORDER BY a.id DESC LIMIT 500')).rows));
+app.get('/api/collections/alerts',auth,async(q,s)=>{try{
+  const cfg=await getConfig();
+  const days=Math.max(0,Math.min(30,Number(cfg.whatsapp_days??3)||0));
+  const rows=await pool.query(`SELECT s.id,s.matricula,s.name,s.last_name,s.phone,s.monthly_fee,
+      COALESCE(mc.due_date,s.due_date) due_date,
+      COALESCE(mc.amount,s.monthly_fee,0) amount,
+      CASE WHEN mc.id IS NULL THEN COALESCE(s.monthly_fee,0)
+           ELSE GREATEST(0,mc.amount-mc.discount-COALESCE((SELECT SUM(pa.amount) FROM payment_allocations pa WHERE pa.charge_id=mc.id),0)) END balance
+    FROM students s
+    LEFT JOIN LATERAL (
+      SELECT x.* FROM monthly_charges x
+      WHERE x.student_id=s.id AND COALESCE(x.covered_by_package,0)=0
+        AND GREATEST(0,x.amount-x.discount-COALESCE((SELECT SUM(pa.amount) FROM payment_allocations pa WHERE pa.charge_id=x.id),0))>0
+      ORDER BY x.period_start LIMIT 1
+    ) mc ON TRUE
+    WHERE s.status='Activo' AND COALESCE(mc.due_date,s.due_date) IS NOT NULL
+    ORDER BY COALESCE(mc.due_date,s.due_date),s.last_name,s.name`);
+  const now=today();
+  const dayNumber=d=>{const [y,m,dd]=String(d).slice(0,10).split('-').map(Number);return Math.floor(Date.UTC(y,m-1,dd)/86400000)};
+  const alerts=rows.rows.map(x=>{const delta=dayNumber(x.due_date)-dayNumber(now);return {...x,days_until_due:delta,alert_type:delta<0?'Vencido':delta===0?'Vence hoy':delta<=days?'Próximo a vencer':null,balance:Number(x.balance||0)}}).filter(x=>x.alert_type);
+  s.json({today:now,days_before:days,alerts});
+}catch(e){console.error(e);s.status(500).json({error:'No se pudieron cargar las alertas de cobranza'})}});
+
 app.get('/api/monthly',auth,async(q,s)=>{try{
   const r=await pool.query(`SELECT s.id,s.matricula,s.name,s.last_name,s.phone,s.plan,s.monthly_fee,s.due_date,s.status,s.benefit_level,
     mc.id AS charge_id,mc.period_start AS charge_period,mc.amount AS charge_amount,
