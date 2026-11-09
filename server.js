@@ -336,7 +336,7 @@ app.post('/api/payments',auth,async(q,s)=>{const client=await pool.connect();try
     // Las promociones siempre comienzan en la fecha efectiva del pago.
     // No se desplazan por mensualidades pendientes ni por periodos históricos.
     const start=String(d0).slice(0,10);
-    if(!/^\\d{4}-\\d{2}-\\d{2}$/.test(start))throw Error('La fecha del pago no es válida');
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(start))throw Error('La fecha del pago no es válida');
     const fee=Number(st.monthly_fee||0);const end=addMonthsExact(start,months);
     const r=await client.query('INSERT INTO payments(receipt_no,student_id,amount,method,concept,paid_at,period,notes,monthly_charge_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *',[rec,st.id,remaining,b.method||'Efectivo',promo.name,d0,`${start} → ${end}`,`Promoción: ${promo.name} · ${months} meses`,null]);
     let firstChargeId=null;
