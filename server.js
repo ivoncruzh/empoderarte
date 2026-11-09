@@ -333,13 +333,10 @@ app.post('/api/payments',auth,async(q,s)=>{const client=await pool.connect();try
       WHERE mc.student_id=$1 AND COALESCE(mc.covered_by_package,0)=0
         AND GREATEST(0,mc.amount-COALESCE(mc.discount,0)-COALESCE((SELECT SUM(pa.amount) FROM payment_allocations pa WHERE pa.charge_id=mc.id),0))>0
       ORDER BY mc.period_start,mc.id LIMIT 1 FOR UPDATE OF mc`,[st.id]);
-    // due_date es el fin del periodo mensual, no el inicio del paquete.
-    // Un paquete debe comenzar en el primer periodo que aún tenga saldo.
-    const openStart=firstOpen.rowCount?String(firstOpen.rows[0].period_start).slice(0,10):null;
-    const openEnd=firstOpen.rowCount?String(firstOpen.rows[0].period_end).slice(0,10):null;
-    // Si paga el mismo día (o antes) del inicio del periodo pendiente, el paquete lo incluye.
-    // Si paga después de iniciado ese periodo, el paquete inicia en la siguiente renovación.
-    let start;if(firstOpen.rowCount){start=String(d0).slice(0,10)<=openStart?openStart:openEnd;}else{const latest=await client.query('SELECT MAX(period_end) AS last_end FROM monthly_charges WHERE student_id=$1',[st.id]);if(latest.rows[0]?.last_end){start=String(latest.rows[0].last_end).slice(0,10);}else{const prior=await client.query('SELECT COUNT(*)::int AS n FROM payments WHERE student_id=$1',[st.id]);if(Number(prior.rows[0]?.n||0)>0)throw Error('No se puede determinar el inicio del paquete: hay pagos anteriores sin periodos vinculados. Primero concilia el historial.');start=String(st.plan_start_date||st.enrollment_date||d0).slice(0,10);}}
+    // Las promociones siempre comienzan en la fecha efectiva del pago.
+    // No se desplazan por mensualidades pendientes ni por periodos históricos.
+    const start=String(d0).slice(0,10);
+    if(!/^\\d{4}-\\d{2}-\\d{2}$/.test(start))throw Error('La fecha del pago no es válida');
     const fee=Number(st.monthly_fee||0);const end=addMonthsExact(start,months);
     const r=await client.query('INSERT INTO payments(receipt_no,student_id,amount,method,concept,paid_at,period,notes,monthly_charge_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *',[rec,st.id,remaining,b.method||'Efectivo',promo.name,d0,`${start} → ${end}`,`Promoción: ${promo.name} · ${months} meses`,null]);
     let firstChargeId=null;
@@ -595,8 +592,19 @@ app.post('/api/trash/:id/restore',auth,director,async(q,s)=>{
     } else if(x.entity_type==='PAGO'){
       if(await exists('SELECT id FROM payments WHERE id=$1',[record.id]))throw Error('Ese pago ya existe');
       if(!(await exists('SELECT id FROM students WHERE id=$1',[record.student_id])))throw Error('El alumno relacionado ya no existe');
-      await insert('payments',['id','receipt_no','student_id','amount','method','concept','paid_at','period','notes','created_at'],record);
+      const paymentRecord={...record,monthly_charge_id:null};
+      await insert('payments',['id','receipt_no','student_id','amount','method','concept','paid_at','period','notes','created_at','monthly_charge_id'],paymentRecord);
+      for(const charge of (d.package_charges||[])){
+        if(!(await exists('SELECT id FROM monthly_charges WHERE id=$1',[charge.id]))){
+          await insert('monthly_charges',['id','student_id','plan_id','period_start','period_end','due_date','amount','discount','balance','status','covered_by_package','package_payment_id','created_at','updated_at'],charge);
+        }
+      }
+      const originalChargeId=record.monthly_charge_id;
+      if(originalChargeId && await exists('SELECT id FROM monthly_charges WHERE id=$1',[originalChargeId])){
+        await client.query('UPDATE payments SET monthly_charge_id=$1 WHERE id=$2',[originalChargeId,record.id]);
+      }
       for(const pa of (d.payment_allocations||[])){if(!(await exists('SELECT id FROM payment_allocations WHERE id=$1',[pa.id])) && await exists('SELECT id FROM monthly_charges WHERE id=$1',[pa.charge_id]))await insert('payment_allocations',['id','payment_id','charge_id','amount','created_at'],pa)}
+      for(const pa of (d.package_charge_allocations||[])){if(!(await exists('SELECT id FROM payment_allocations WHERE id=$1',[pa.id])) && await exists('SELECT id FROM monthly_charges WHERE id=$1',[pa.charge_id]) && await exists('SELECT id FROM payments WHERE id=$1',[pa.payment_id]))await insert('payment_allocations',['id','payment_id','charge_id','amount','created_at'],pa)}
       await client.query('UPDATE students SET due_date=$1,updated_at=CURRENT_TIMESTAMP WHERE id=$2',[d.student_due_date_before,record.student_id]);
       await bump('payments');
     } else if(x.entity_type==='ASISTENCIA'){
@@ -730,12 +738,21 @@ app.post('/api/delete',auth,async(q,s)=>{
     } else if(entity==='PAGO'){
       const x=await one('SELECT * FROM payments WHERE id=$1',[id]); if(!x)throw Error('Pago no encontrado');
       const st=await one('SELECT id,due_date FROM students WHERE id=$1',[x.student_id]); if(!st)throw Error('Alumno relacionado no encontrado');
-      const allocations=await all('SELECT * FROM payment_allocations WHERE payment_id=$1 ORDER BY id',[id]); snapshot={record:x,student_due_date_before:st.due_date,payment_allocations:allocations}; name='Pago '+x.receipt_no; matricula='';
-      // Evitar conflicto con pagos de paquetes referenciados desde monthly_charges.
-      await client.query('UPDATE monthly_charges SET package_payment_id=NULL WHERE package_payment_id=$1',[id]);
+      const allocations=await all('SELECT * FROM payment_allocations WHERE payment_id=$1 ORDER BY id',[id]);
+      const packageCharges=await all('SELECT * FROM monthly_charges WHERE package_payment_id=$1 ORDER BY period_start,id',[id]);
+      const packageChargeIds=packageCharges.map(c=>c.id);
+      const packageAllocations=packageChargeIds.length?await all('SELECT * FROM payment_allocations WHERE charge_id=ANY($1::int[]) ORDER BY id',[packageChargeIds]):[];
+      snapshot={record:x,student_due_date_before:st.due_date,payment_allocations:allocations,package_charges:packageCharges,package_charge_allocations:packageAllocations};
+      name='Pago '+x.receipt_no; matricula='';
+      // Quitar también los periodos creados/cubiertos por este paquete.
+      // Se guardan en Papelera para permitir restaurar el pago y sus periodos.
+      await client.query('UPDATE payments SET monthly_charge_id=NULL WHERE id=$1',[id]);
+      if(packageChargeIds.length){
+        await client.query('DELETE FROM monthly_charges WHERE id=ANY($1::int[])',[packageChargeIds]);
+      }
       await client.query('DELETE FROM payments WHERE id=$1',[id]);
       await client.query(`UPDATE monthly_charges mc SET balance=GREATEST(0,mc.amount-mc.discount-COALESCE((SELECT SUM(pa.amount) FROM payment_allocations pa WHERE pa.charge_id=mc.id),0)),status=CASE WHEN GREATEST(0,mc.amount-mc.discount-COALESCE((SELECT SUM(pa.amount) FROM payment_allocations pa WHERE pa.charge_id=mc.id),0))<=0 THEN 'Pagado' WHEN COALESCE((SELECT SUM(pa.amount) FROM payment_allocations pa WHERE pa.charge_id=mc.id),0)>0 THEN 'Parcial' ELSE 'Pendiente' END,updated_at=CURRENT_TIMESTAMP WHERE mc.student_id=$1`,[x.student_id]);
-      const open=await all('SELECT due_date FROM monthly_charges WHERE student_id=$1 AND balance>0 ORDER BY period_start LIMIT 1',[x.student_id]);const due=open[0]?.due_date||null;await client.query('UPDATE students SET due_date=$1,updated_at=CURRENT_TIMESTAMP WHERE id=$2',[due,x.student_id]);
+      const open=await all('SELECT due_date FROM monthly_charges WHERE student_id=$1 AND balance>0 AND COALESCE(covered_by_package,0)=0 ORDER BY period_start LIMIT 1',[x.student_id]);const due=open[0]?.due_date||null;await client.query('UPDATE students SET due_date=$1,updated_at=CURRENT_TIMESTAMP WHERE id=$2',[due,x.student_id]);
     } else if(entity==='ASISTENCIA'){
       const x=await one('SELECT a.*,s.matricula,s.name,s.last_name FROM attendance a LEFT JOIN students s ON s.id=a.student_id WHERE a.id=$1',[id]); if(!x)throw Error('Asistencia no encontrada');
       snapshot={record:await one('SELECT * FROM attendance WHERE id=$1',[id])};name=x.name||'Asistencia';matricula=x.matricula||'';
