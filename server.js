@@ -18,78 +18,46 @@ const monthOffset=(a,b)=>{const x=String(a).slice(0,10).split('-').map(Number),y
 async function ensureMonthlyCharges(studentId,horizonMonths=12){
   const stq=await pool.query('SELECT s.*,p.id plan_catalog_id,p.months plan_months,p.fee plan_fee FROM students s LEFT JOIN plans p ON p.id=s.plan_id WHERE s.id=$1',[studentId]);
   if(!stq.rowCount)return [];
-  const st=stq.rows[0];
-  const amount=Number(st.monthly_fee??st.plan_fee??0);
-  const planId=st.plan_id||st.plan_catalog_id||null;
-  const max=Math.min(120,Math.max(1,Number(horizonMonths)||12));
-  const cutoff=addMonthsExact(today(),max);
-  const existing=await pool.query(
-    'SELECT period_start,period_end FROM monthly_charges WHERE student_id=$1 ORDER BY period_start',
-    [studentId]
-  );
-
-  // La fecha de aniversario se conserva desde el primer periodo, no desde
-  // el último vencimiento (evita que 31-ene -> 28-feb -> 28-mar se desplace).
-  // Nunca se reescriben periodos existentes ni pagos históricos.
-  let anchor, periodStart, periodIndex;
+  const st=stq.rows[0],amount=Number(st.monthly_fee??st.plan_fee??0),planId=st.plan_id||st.plan_catalog_id||null;
+  const max=Math.min(120,Math.max(1,Number(horizonMonths)||12)),cutoff=addMonthsExact(today(),max);
+  const existing=await pool.query('SELECT id,period_start,period_end,due_date FROM monthly_charges WHERE student_id=$1 ORDER BY period_start,period_end,id',[studentId]);
+  let anchor,periodStart,periodIndex,integrityIssue=false;
   if(existing.rows.length){
     anchor=String(existing.rows[0].period_start).slice(0,10);
-    periodStart=String(existing.rows[existing.rows.length-1].period_end).slice(0,10);
+    // No continuar generando periodos si el historial ya contiene huecos o traslapes.
+    // Hacerlo silenciosamente amplificaría el error y dificultaría la conciliación.
+    for(let i=1;i<existing.rows.length;i++){
+      const prev=String(existing.rows[i-1].period_end).slice(0,10);
+      const next=String(existing.rows[i].period_start).slice(0,10);
+      if(prev!==next){integrityIssue=true;break;}
+    }
+    const latest=existing.rows.reduce((a,b)=>String(b.period_end)>String(a.period_end)?b:a,existing.rows[0]);
+    periodStart=String(latest.period_end).slice(0,10);
     periodIndex=Math.max(0,monthOffset(anchor,periodStart));
-  }else if(st.due_date){
-    anchor=addMonthsExact(String(st.due_date).slice(0,10),-1);
-    periodStart=anchor;
-    periodIndex=0;
   }else{
-    const base=String(st.plan_start_date||st.enrollment_date||today()).slice(0,10);
-    // Sin cargos ni vencimiento heredado no se crean adeudos retroactivos
-    // automáticamente: la conciliación histórica debe ser revisada.
-    anchor=base<today()?today():base;
-    periodStart=anchor;
-    periodIndex=0;
+    // plan_start_date es el inicio del primer periodo; due_date es su fin.
+    // No usar due_date como inicio, porque desplaza todo el calendario un mes.
+    anchor=String(st.plan_start_date||st.enrollment_date||'').slice(0,10);
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(anchor)) anchor=st.due_date?addMonthsExact(String(st.due_date).slice(0,10),-1):today();
+    if(anchor>today()) anchor=String(st.plan_start_date||today()).slice(0,10);
+    periodStart=anchor;periodIndex=0;
   }
-
-  const values=[],params=[];
-  let guard=0;
-  while(periodStart<cutoff && guard<max+24){
-    const periodEnd=addMonthsExact(anchor,periodIndex+1);
-    if(periodEnd<=periodStart)break;
+  const values=[],params=[];let guard=0;
+  while(!integrityIssue && periodStart<cutoff && guard<max+24){
+    const periodEnd=addMonthsExact(anchor,periodIndex+1);if(periodEnd<=periodStart)break;
     const base=values.length*6;
     values.push(`($${base+1},$${base+2},$${base+3},$${base+4},$${base+5},$${base+6},0,$${base+6},'Pendiente',0,NULL)`);
     params.push(studentId,planId,periodStart,periodEnd,periodEnd,amount);
-    periodStart=periodEnd;
-    periodIndex++;
-    guard++;
+    periodStart=periodEnd;periodIndex++;guard++;
   }
-  if(values.length){
-    await pool.query(
-      `INSERT INTO monthly_charges(student_id,plan_id,period_start,period_end,due_date,amount,discount,balance,status,covered_by_package,package_payment_id)
-       VALUES ${values.join(',')}
-       ON CONFLICT(student_id,period_start) DO NOTHING`,
-      params
-    );
-  }
-
-  const rows=(await pool.query(`SELECT mc.*,p.name plan_name,
-      COALESCE((SELECT SUM(pa.amount) FROM payment_allocations pa WHERE pa.charge_id=mc.id),0) paid_amount
-      FROM monthly_charges mc
-      LEFT JOIN plans p ON p.id=mc.plan_id
-      WHERE mc.student_id=$1
-      ORDER BY mc.period_start`,[studentId])).rows.map(x=>{
+  if(values.length) await pool.query(`INSERT INTO monthly_charges(student_id,plan_id,period_start,period_end,due_date,amount,discount,balance,status,covered_by_package,package_payment_id) VALUES ${values.join(',')} ON CONFLICT(student_id,period_start) DO NOTHING`,params);
+  const rows=(await pool.query(`SELECT mc.*,p.name plan_name,COALESCE((SELECT SUM(pa.amount) FROM payment_allocations pa WHERE pa.charge_id=mc.id),0) paid_amount FROM monthly_charges mc LEFT JOIN plans p ON p.id=mc.plan_id WHERE mc.student_id=$1 ORDER BY mc.period_start,mc.period_end,mc.id`,[studentId])).rows.map(x=>{
     const paid=Number(x.paid_amount||0),covered=Number(x.covered_by_package||0)===1;
     const bal=covered?0:Math.max(0,Number(x.amount)-Number(x.discount||0)-paid);
-    const due=String(x.due_date||x.period_end||'');
-    const dueStatus=due<today()?'Vencido':due===today()?'Vence hoy':'Al corriente';
-    const stt=covered||bal<=0?'Pagado':paid>0?'Parcial':dueStatus;
-    return {...x,covered_by_package:covered,paid_amount:paid,balance:bal,status:stt};
+    const due=String(x.due_date||x.period_end||''),dueStatus=due<today()?'Vencido':due===today()?'Vence hoy':'Al corriente';
+    return {...x,covered_by_package:covered,paid_amount:paid,balance:bal,status:covered||bal<=0?'Pagado':paid>0?'Parcial':dueStatus,billing_integrity:integrityIssue?'REVISAR_HUECOS_O_TRASLAPES':'OK'};
   });
-  const next=rows.find(x=>Number(x.balance||0)>0&&!x.covered_by_package);
-  const packageEnds=rows.filter(x=>x.covered_by_package&&x.package_payment_id&&String(x.period_end||'')>=today()).map(x=>String(x.period_end).slice(0,10)).sort();
-  // Mientras un paquete esté vigente, la ficha muestra su fecha real de renovación.
-  const due=packageEnds[packageEnds.length-1]||next?.due_date||rows[rows.length-1]?.due_date||st.due_date||null;
-  if(due){
-    await pool.query('UPDATE students SET due_date=$1,updated_at=CURRENT_TIMESTAMP WHERE id=$2 AND COALESCE(due_date,\'\')<>$1',[due,studentId]);
-  }
+  // No sobrescribir students.due_date desde un historial posiblemente inconsistente.
   return rows;
 }
 
@@ -112,18 +80,7 @@ async function repairPaymentDates(){
     END,
     updated_at=CURRENT_TIMESTAMP`);
 
-  await pool.query(`UPDATE students s SET due_date=COALESCE(
-      (SELECT MAX(mc.period_end) FROM monthly_charges mc WHERE mc.student_id=s.id AND COALESCE(mc.covered_by_package,0)=1 AND mc.package_payment_id IS NOT NULL AND mc.period_end>=CURRENT_DATE::text),
-      (SELECT mc.due_date
-       FROM monthly_charges mc
-       WHERE mc.student_id=s.id
-         AND COALESCE(mc.covered_by_package,0)=0
-         AND GREATEST(0,mc.amount-mc.discount-COALESCE((SELECT SUM(pa.amount) FROM payment_allocations pa WHERE pa.charge_id=mc.id),0))>0
-       ORDER BY mc.period_start LIMIT 1),
-      (SELECT mc.due_date FROM monthly_charges mc WHERE mc.student_id=s.id ORDER BY mc.period_start DESC LIMIT 1),
-      s.due_date),
-      updated_at=CURRENT_TIMESTAMP
-    WHERE EXISTS(SELECT 1 FROM monthly_charges mc WHERE mc.student_id=s.id)`);
+  // La fecha de students.due_date no se reescribe automáticamente: se calcula desde cargos válidos en la ficha.
 }
 
 
@@ -338,12 +295,13 @@ app.get('/api/students/:id',auth,async(q,s)=>{try{
         WHERE mc.student_id=$1
         UNION ALL
         SELECT p.id,p.receipt_no,p.concept,p.paid_at,
-               mc.period_start,mc.period_end,mc.due_date,
-               (mc.period_start||' → '||mc.period_end)::text,
+               MIN(mc.period_start) AS period_start,MAX(mc.period_end) AS period_end,MAX(mc.due_date) AS due_date,
+               (MIN(mc.period_start)||' → '||MAX(mc.period_end))::text,
                'Paquete'::text
         FROM monthly_charges mc
         JOIN payments p ON p.id=mc.package_payment_id
         WHERE mc.student_id=$1
+        GROUP BY p.id,p.receipt_no,p.concept,p.paid_at
         UNION ALL
         SELECT p.id,p.receipt_no,p.concept,p.paid_at,
                mc.period_start,mc.period_end,mc.due_date,
@@ -381,7 +339,7 @@ app.post('/api/payments',auth,async(q,s)=>{const client=await pool.connect();try
     const openEnd=firstOpen.rowCount?String(firstOpen.rows[0].period_end).slice(0,10):null;
     // Si paga el mismo día (o antes) del inicio del periodo pendiente, el paquete lo incluye.
     // Si paga después de iniciado ese periodo, el paquete inicia en la siguiente renovación.
-    const start=firstOpen.rowCount?(String(d0).slice(0,10)<=openStart?openStart:openEnd):String(st.due_date||st.plan_start_date||d0).slice(0,10);
+    let start;if(firstOpen.rowCount){start=String(d0).slice(0,10)<=openStart?openStart:openEnd;}else{const latest=await client.query('SELECT MAX(period_end) AS last_end FROM monthly_charges WHERE student_id=$1',[st.id]);if(latest.rows[0]?.last_end){start=String(latest.rows[0].last_end).slice(0,10);}else{const prior=await client.query('SELECT COUNT(*)::int AS n FROM payments WHERE student_id=$1',[st.id]);if(Number(prior.rows[0]?.n||0)>0)throw Error('No se puede determinar el inicio del paquete: hay pagos anteriores sin periodos vinculados. Primero concilia el historial.');start=String(st.plan_start_date||st.enrollment_date||d0).slice(0,10);}}
     const fee=Number(st.monthly_fee||0);const end=addMonthsExact(start,months);
     const r=await client.query('INSERT INTO payments(receipt_no,student_id,amount,method,concept,paid_at,period,notes,monthly_charge_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *',[rec,st.id,remaining,b.method||'Efectivo',promo.name,d0,`${start} → ${end}`,`Promoción: ${promo.name} · ${months} meses`,null]);
     let firstChargeId=null;
